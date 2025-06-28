@@ -108,7 +108,7 @@ export default function Home() {
                     <h1 className="text-4xl md:text-6xl font-light text-gray-800 mb-4">
                         מעקב תזונה
                         <span className="block text-2xl md:text-3xl text-gray-500 font-normal mt-2">
-                            בשיטת מנות מאקרו
+                            חיפוש אוטומטי לערכים תזונתיים עם AI | בשיטת מנות מאקרו
                         </span>
                     </h1>
                     
@@ -206,7 +206,7 @@ export default function Home() {
 
                 <DailyProgress todayFoods={todayFoods} goals={goals} />
 
-                <div className="mb-8">
+                <div className="mb-16">
                     <FoodList 
                         foods={todayFoods} 
                         onDeleteFood={handleDeleteFood}
