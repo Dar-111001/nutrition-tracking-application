@@ -1,7 +1,7 @@
 
 import React from "react";
 import { Link } from "react-router-dom";
-import { createPageUrl } from "./utils";
+import { createPageUrl } from "@/utils";
 import { Home as HomeIcon, CalendarDays, Library } from "lucide-react";
 import { Button } from "@/components/ui/button";
 

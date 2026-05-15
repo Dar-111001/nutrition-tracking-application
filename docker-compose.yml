@@ -1,0 +1,26 @@
+services:
+  app:
+    build:
+      context: .
+      args:
+        VITE_POCKETBASE_URL: http://localhost:8090
+    ports:
+      - "3000:80"
+    depends_on:
+      - pocketbase
+    restart: unless-stopped
+
+  pocketbase:
+    build:
+      context: .
+      dockerfile: Dockerfile.pocketbase
+    ports:
+      - "8090:8090"
+    env_file:
+      - .env
+    volumes:
+      - pocketbase_data:/pb/pb_data
+    restart: unless-stopped
+
+volumes:
+  pocketbase_data:

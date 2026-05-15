@@ -1,0 +1,23 @@
+FROM alpine:latest
+ARG PB_VERSION=0.22.20
+
+RUN apk add --no-cache unzip ca-certificates wget curl jq
+
+# Download PocketBase for the correct CPU architecture
+RUN ARCH=$(uname -m) && \
+    case "$ARCH" in \
+        x86_64)  PB_ARCH="amd64" ;; \
+        aarch64) PB_ARCH="arm64" ;; \
+        *)       PB_ARCH="amd64" ;; \
+    esac && \
+    wget -q "https://github.com/pocketbase/pocketbase/releases/download/v${PB_VERSION}/pocketbase_${PB_VERSION}_linux_${PB_ARCH}.zip" \
+    && unzip "pocketbase_${PB_VERSION}_linux_${PB_ARCH}.zip" \
+    && mv pocketbase /usr/local/bin/pocketbase \
+    && rm "pocketbase_${PB_VERSION}_linux_${PB_ARCH}.zip"
+
+COPY pb_setup.sh /pb_setup.sh
+RUN chmod +x /pb_setup.sh
+
+VOLUME ["/pb/pb_data"]
+EXPOSE 8090
+ENTRYPOINT ["/pb_setup.sh"]

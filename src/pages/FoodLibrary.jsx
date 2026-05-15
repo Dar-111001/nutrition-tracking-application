@@ -66,6 +66,10 @@ export default function FoodLibrary() {
     };
 
     const handleSave = async () => {
+        if (!currentItem.name.trim()) {
+            alert("אנא הזן שם לפריט המזון");
+            return;
+        }
         const dataToSave = {
             name: currentItem.name,
             protein_per_100g: parseFloat(currentItem.protein_per_100g) || 0,
@@ -73,13 +77,18 @@ export default function FoodLibrary() {
             fat_per_100g: parseFloat(currentItem.fat_per_100g) || 0,
         };
 
-        if (isEditing) {
-            await FoodItem.update(currentItem.id, dataToSave);
-        } else {
-            await FoodItem.create(dataToSave);
+        try {
+            if (isEditing) {
+                await FoodItem.update(currentItem.id, dataToSave);
+            } else {
+                await FoodItem.create(dataToSave);
+            }
+            setShowDialog(false);
+            await loadFoodItems();
+        } catch (error) {
+            console.error("Error saving food item:", error);
+            alert("שגיאה בשמירה. ודא שהשרת פועל ונסה שוב.");
         }
-        setShowDialog(false);
-        await loadFoodItems();
     };
 
     const handleFileUpload = async (event) => {
