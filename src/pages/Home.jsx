@@ -19,7 +19,6 @@ import DailyProgress from "../components/nutrition/DailyProgress";
 import FoodList from "../components/nutrition/FoodList";
 
 export default function Home() {
-    const [foods, setFoods] = useState([]);
     const [todayFoods, setTodayFoods] = useState([]);
     const [goals, setGoals] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
@@ -32,9 +31,7 @@ export default function Home() {
 
     const loadData = async () => {
         try {
-            const allFoods = await Food.list("-created_date");
-            setFoods(allFoods);
-            
+            const allFoods = await Food.list("-created");
             const today = new Date().toISOString().split('T')[0];
             const todaysFoods = allFoods.filter(food => food.date === today);
             setTodayFoods(todaysFoods);
