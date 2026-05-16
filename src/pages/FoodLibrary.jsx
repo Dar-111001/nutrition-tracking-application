@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import { FoodItem } from "@/api/entities";
-import { UploadFile, ExtractDataFromUploadedFile } from "@/api/integrations";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -97,40 +96,42 @@ export default function FoodLibrary() {
 
         setIsUploading(true);
         try {
-            // Upload the file first
-            const { file_url } = await UploadFile({ file });
-            
-            // Extract data from the CSV
-            const result = await ExtractDataFromUploadedFile({
-                file_url,
-                json_schema: {
-                    type: "array",
-                    items: {
-                        type: "object",
-                        properties: {
-                            name: { type: "string" },
-                            protein_per_100g: { type: "number" },
-                            carbs_per_100g: { type: "number" },
-                            fat_per_100g: { type: "number" }
-                        }
-                    }
-                }
-            });
+            const text = await file.text();
+            const lines = text.trim().split(/\r?\n/);
+            const header = lines[0].toLowerCase().split(",").map(h => h.trim());
 
-            if (result.status === "success" && result.output) {
-                // Create all food items
-                for (const item of result.output) {
-                    await FoodItem.create(item);
-                }
-                await loadFoodItems();
-                setShowUploadDialog(false);
-                alert(`הועלו בהצלחה ${result.output.length} פריטי מזון!`);
-            } else {
-                alert("שגיאה בעיבוד הקובץ: " + result.details);
+            const nameIdx    = header.indexOf("name");
+            const proteinIdx = header.indexOf("protein_per_100g");
+            const carbsIdx   = header.indexOf("carbs_per_100g");
+            const fatIdx     = header.indexOf("fat_per_100g");
+
+            if (nameIdx === -1 || proteinIdx === -1 || carbsIdx === -1 || fatIdx === -1) {
+                alert("הקובץ חייב להכיל את העמודות: name, protein_per_100g, carbs_per_100g, fat_per_100g");
+                setIsUploading(false);
+                return;
             }
+
+            const items = [];
+            for (let i = 1; i < lines.length; i++) {
+                const cols = lines[i].split(",").map(c => c.trim());
+                if (!cols[nameIdx]) continue;
+                items.push({
+                    name:             cols[nameIdx],
+                    protein_per_100g: parseFloat(cols[proteinIdx]) || 0,
+                    carbs_per_100g:   parseFloat(cols[carbsIdx])   || 0,
+                    fat_per_100g:     parseFloat(cols[fatIdx])      || 0,
+                });
+            }
+
+            for (const item of items) {
+                await FoodItem.create(item);
+            }
+            await loadFoodItems();
+            setShowUploadDialog(false);
+            alert(`הועלו בהצלחה ${items.length} פריטי מזון!`);
         } catch (error) {
             console.error("Error uploading file:", error);
-            alert("שגיאה בהעלאת הקובץ");
+            alert("שגיאה בקריאת הקובץ");
         }
         setIsUploading(false);
     };

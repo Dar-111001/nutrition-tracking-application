@@ -6,7 +6,6 @@ import { motion } from "framer-motion";
 
 export default function MonthlyTracker() {
     const [dailyData, setDailyData] = useState({});
-    const [goals, setGoals] = useState(null);
     const [stats, setStats] = useState({ green: 0, red: 0, total: 0 });
     const [isLoading, setIsLoading] = useState(true);
 
@@ -16,11 +15,9 @@ export default function MonthlyTracker() {
 
     const loadData = async () => {
         try {
-            const allFoods = await Food.list("-created_date");
+            const allFoods = await Food.list("-created");
             const goalsData = await DailyGoals.list();
             const currentGoals = goalsData && goalsData.length > 0 ? goalsData[0] : { protein_goal: 6, carbs_goal: 6.5, fat_goal: 2 };
-            
-            setGoals(currentGoals);
             
             // Get last 30 days
             const last30Days = getLast30Days();
