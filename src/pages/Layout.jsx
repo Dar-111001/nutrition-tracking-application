@@ -5,6 +5,7 @@ import { Home as HomeIcon, CalendarDays, Library, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "react-i18next";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
+import OfflineBanner from "@/components/OfflineBanner";
 import { logout } from "@/api/auth";
 
 export default function Layout({ children, currentPageName }) {
@@ -66,6 +67,7 @@ export default function Layout({ children, currentPageName }) {
                     </nav>
                 </div>
             </header>
+            <OfflineBanner />
             <main className="p-4 md:p-8">
                 <div className="max-w-6xl mx-auto">
                     {children}

@@ -3,16 +3,21 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Plus, Calculator, Search, Loader2 } from "lucide-react";
+import { Plus, Calculator, Search } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { searchFood } from "@/api/entities";
 import { useTranslation } from "react-i18next";
+import InlineError from "@/components/InlineError";
+import LogoSpinner from "@/components/LogoSpinner";
 
 export default function FoodForm({ onSubmit, isLoading }) {
     const { t } = useTranslation();
     const [formData, setFormData] = useState({ name: "", protein_grams: "", carbs_grams: "", fat_grams: "" });
     const [isSearching, setIsSearching] = useState(false);
     const [searchResults, setSearchResults] = useState([]);
+    const [searchError, setSearchError] = useState(null);
+    const [searchNotFound, setSearchNotFound] = useState(false);
+    const [submitError, setSubmitError] = useState(null);
 
     const calculatePortions = (proteinGrams, carbsGrams, fatGrams) => ({
         protein_portions: Math.round((proteinGrams / 30) * 10) / 10,
@@ -22,20 +27,22 @@ export default function FoodForm({ onSubmit, isLoading }) {
 
     const handleAutoSearch = async () => {
         if (!formData.name.trim()) {
-            alert(t("form_alert_no_name"));
+            setSearchError(t("form_alert_no_name"));
             return;
         }
         setIsSearching(true);
         setSearchResults([]);
-        const result = await searchFood(formData.name);
+        setSearchError(null);
+        setSearchNotFound(false);
+        const result = await searchFood(formData.name.trim());
+        setIsSearching(false);
         if (!result.ok) {
-            alert(t("form_alert_error"));
+            setSearchError(result.error);
         } else if (result.data.length === 0) {
-            alert(t("form_alert_not_found"));
+            setSearchNotFound(true);
         } else {
             setSearchResults(result.data);
         }
-        setIsSearching(false);
     };
 
     const selectResult = (result) => {
@@ -48,26 +55,35 @@ export default function FoodForm({ onSubmit, isLoading }) {
         setSearchResults([]);
     };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!formData.name || formData.protein_grams === "" || formData.carbs_grams === "" || formData.fat_grams === "") return;
+        if (!formData.name.trim() || formData.protein_grams === "" || formData.carbs_grams === "" || formData.fat_grams === "") {
+            setSubmitError(t("form_fields_required"));
+            return;
+        }
+        setSubmitError(null);
 
         const proteinGrams = parseFloat(formData.protein_grams) || 0;
         const carbsGrams   = parseFloat(formData.carbs_grams)   || 0;
         const fatGrams     = parseFloat(formData.fat_grams)      || 0;
         const portions     = calculatePortions(proteinGrams, carbsGrams, fatGrams);
 
-        onSubmit({
-            ...formData,
+        const result = await onSubmit({
+            name: formData.name.trim(),
             protein_grams: proteinGrams,
             carbs_grams:   carbsGrams,
             fat_grams:     fatGrams,
             ...portions,
-            date: new Date().toISOString().split('T')[0],
         });
 
+        // Keep what the user typed if saving failed, so they can retry.
+        if (!result.ok) {
+            setSubmitError(result.error);
+            return;
+        }
         setFormData({ name: "", protein_grams: "", carbs_grams: "", fat_grams: "" });
         setSearchResults([]);
+        setSearchNotFound(false);
     };
 
     const currentPortions = calculatePortions(
@@ -98,6 +114,8 @@ export default function FoodForm({ onSubmit, isLoading }) {
                                     onChange={(e) => {
                                         setFormData({ ...formData, name: e.target.value });
                                         setSearchResults([]);
+                                        setSearchError(null);
+                                        setSearchNotFound(false);
                                     }}
                                     placeholder={t("form_name_placeholder")}
                                     className="h-12 text-lg border-2 border-gray-200 focus:border-emerald-400 rounded-xl flex-1"
@@ -109,13 +127,15 @@ export default function FoodForm({ onSubmit, isLoading }) {
                                     className="h-12 px-6 bg-blue-500 hover:bg-blue-600 text-white rounded-xl"
                                 >
                                     {isSearching
-                                        ? <Loader2 className="w-5 h-5 animate-spin" />
+                                        ? <LogoSpinner size="sm" inline />
                                         : <Search className="w-5 h-5" />}
                                     <span className="ms-2">
                                         {isSearching ? t("form_searching") : t("form_auto_search")}
                                     </span>
                                 </Button>
                             </div>
+                            <InlineError error={searchError} onRetry={typeof searchError === "string" ? undefined : handleAutoSearch} />
+                            {searchNotFound && <p className="text-sm text-gray-600">{t("form_alert_not_found")}</p>}
                             <p className="text-sm text-gray-500">{t("form_name_hint")}</p>
 
                             {/* Search results picker */}
@@ -201,8 +221,10 @@ export default function FoodForm({ onSubmit, isLoading }) {
                             disabled={isLoading}
                             className="w-full h-14 text-lg font-medium bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 rounded-xl transition-all duration-300 transform hover:scale-[1.02]"
                         >
+                            {isLoading && <LogoSpinner size="sm" inline className="me-2" />}
                             {isLoading ? t("form_submitting") : t("form_submit")}
                         </Button>
+                        <InlineError error={submitError} />
                     </form>
                 </CardContent>
             </Card>

@@ -15,6 +15,8 @@ import { Calculator } from "lucide-react";
 import { FoodItem } from "@/api/entities";
 import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
+import InlineError from "@/components/InlineError";
+import LogoSpinner from "@/components/LogoSpinner";
 
 export default function QuickAddFoodDialog({ isOpen, onOpenChange, onSubmit, isLoading }) {
     const { t } = useTranslation();
@@ -22,11 +24,22 @@ export default function QuickAddFoodDialog({ isOpen, onOpenChange, onSubmit, isL
     const [selectedFoodItemId, setSelectedFoodItemId] = useState("");
     const [gramsConsumed, setGramsConsumed] = useState("");
     const [calculatedMacros, setCalculatedMacros] = useState(null);
+    const [libraryLoad, setLibraryLoad] = useState({ status: "loading", error: null });
+    const [submitError, setSubmitError] = useState(null);
+
+    const loadLibrary = async () => {
+        setLibraryLoad({ status: "loading", error: null });
+        const result = await FoodItem.list();
+        if (result.ok) {
+            setFoodItems(result.data);
+            setLibraryLoad({ status: "ready", error: null });
+        } else {
+            setLibraryLoad({ status: "error", error: result.error });
+        }
+    };
 
     useEffect(() => {
-        if (isOpen) {
-            FoodItem.list().then((result) => setFoodItems(result.ok ? result.data : []));
-        }
+        if (isOpen) loadLibrary();
     }, [isOpen]);
 
     useEffect(() => {
@@ -53,12 +66,14 @@ export default function QuickAddFoodDialog({ isOpen, onOpenChange, onSubmit, isL
     const handleSubmit = async () => {
         if (selectedFoodItemId && gramsConsumed > 0 && calculatedMacros) {
             const selectedItem = foodItems.find(item => item.id === selectedFoodItemId);
-            await onSubmit({
+            setSubmitError(null);
+            const result = await onSubmit({
                 name: `${selectedItem.name} (${gramsConsumed}g)`,
                 ...calculatedMacros,
-                date: new Date().toISOString().split('T')[0],
             });
-            resetForm();
+            // On failure the dialog stays open with the user's choice, and the error shows under the button.
+            if (result.ok) resetForm();
+            else setSubmitError(result.error);
         }
     };
 
@@ -66,6 +81,7 @@ export default function QuickAddFoodDialog({ isOpen, onOpenChange, onSubmit, isL
         setSelectedFoodItemId("");
         setGramsConsumed("");
         setCalculatedMacros(null);
+        setSubmitError(null);
         onOpenChange(false);
     };
 
@@ -79,16 +95,24 @@ export default function QuickAddFoodDialog({ isOpen, onOpenChange, onSubmit, isL
                 <div className="grid gap-6 py-4">
                     <div className="space-y-2">
                         <Label htmlFor="foodItem">{t("quick_select_label")}</Label>
-                        <Select value={selectedFoodItemId} onValueChange={setSelectedFoodItemId}>
-                            <SelectTrigger id="foodItem">
-                                <SelectValue placeholder={t("quick_select_placeholder")} />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {foodItems.map(item => (
-                                    <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                        {libraryLoad.status === "loading" ? (
+                            <LogoSpinner size="sm" className="py-2 flex-row" />
+                        ) : libraryLoad.status === "error" ? (
+                            <InlineError error={libraryLoad.error} onRetry={loadLibrary} />
+                        ) : foodItems.length === 0 ? (
+                            <p className="text-sm text-gray-600">{t("quick_library_empty")}</p>
+                        ) : (
+                            <Select value={selectedFoodItemId} onValueChange={setSelectedFoodItemId}>
+                                <SelectTrigger id="foodItem">
+                                    <SelectValue placeholder={t("quick_select_placeholder")} />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {foodItems.map(item => (
+                                        <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        )}
                     </div>
 
                     <div className="space-y-2">
@@ -129,10 +153,12 @@ export default function QuickAddFoodDialog({ isOpen, onOpenChange, onSubmit, isL
                         </motion.div>
                     )}
                 </div>
-                <DialogFooter>
+                <DialogFooter className="flex-col sm:flex-col">
                     <Button onClick={handleSubmit} disabled={isLoading || !calculatedMacros} className="w-full">
+                        {isLoading && <LogoSpinner size="sm" inline className="me-2" />}
                         {isLoading ? t("quick_submitting") : t("quick_submit")}
                     </Button>
+                    <InlineError error={submitError} />
                 </DialogFooter>
             </DialogContent>
         </Dialog>
