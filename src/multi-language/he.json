@@ -3,7 +3,6 @@
   "nav_daily": "יומן יומי",
   "nav_monthly": "מעקב חודשי",
   "nav_library": "ספריית מזון",
-
   "home_title": "מעקב תזונה",
   "home_subtitle": "חיפוש אוטומטי לערכים תזונתיים עם AI | בשיטת מנות מאקרו",
   "home_set_goals": "הגדרת יעדים",
@@ -26,14 +25,12 @@
   "home_example_almonds": "שקדים (31 גרם) ≈ 1.6 מנות שומן",
   "home_example_avocado": "אבוקדו (112 גרם) ≈ 1.8 מנות שומן",
   "home_confirm_clear": "האם אתה בטוח שברצונך למחוק את כל הארוחות של היום?",
-
   "progress_title": "מעקב יומי",
   "progress_protein": "חלבון",
   "progress_carbs": "פחמימה",
   "progress_fat": "שומן",
   "progress_remaining": "נותר: {{count}} מנות",
   "progress_goal_achieved": "🎉 יעד הושג!",
-
   "foodlist_title": "הארוחות שלי היום",
   "foodlist_quick_add": "הוספה מהירה",
   "foodlist_empty": "עדיין לא הוספת ארוחות היום",
@@ -45,7 +42,6 @@
   "foodlist_protein_portions": "{{count}} מנות חלבון",
   "foodlist_carbs_portions": "{{count}} מנות פחמימה",
   "foodlist_fat_portions": "{{count}} מנות שומן",
-
   "form_title": "הוספת מזון חדש (מאה גרם)",
   "form_name_label": "שם המזון",
   "form_name_placeholder": "לדוגמה: חזה עוף מבושל",
@@ -65,7 +61,6 @@
   "form_alert_no_name": "אנא הזן שם מזון לפני החיפוש",
   "form_alert_not_found": "לא הצלחתי למצוא מידע תזונתי למזון הזה. אנא הזן ידנית",
   "form_alert_error": "שגיאה בחיפוש המידע. אנא נסה שוב או הזן ידנית",
-
   "quick_title": "הוספה מהירה מהספרייה",
   "quick_desc": "בחר פריט מהספרייה, הזן משקל, והארוחה תתווסף ליומן.",
   "quick_select_label": "בחר מזון",
@@ -77,7 +72,6 @@
   "quick_fat": "שומן",
   "quick_submit": "הוסף ליומן",
   "quick_submitting": "מוסיף...",
-
   "library_title": "ספריית המזון שלי",
   "library_subtitle": "נהל את פריטי המזון הנפוצים שלך",
   "library_list_title": "רשימת פריטים",
@@ -106,21 +100,27 @@
   "library_alert_bad_csv": "הקובץ חייב להכיל את העמודות: name, protein_per_100g, carbs_per_100g, fat_per_100g",
   "library_alert_upload_success": "הועלו בהצלחה {{count}} פריטי מזון!",
   "library_alert_upload_error": "שגיאה בקריאת הקובץ",
-
   "monthly_title": "מעקב חודשי",
   "monthly_subtitle": "30 הימים האחרונים",
   "monthly_green_days": "ימים עם השגת יעדים",
   "monthly_red_days": "ימים ללא השגת יעדים",
   "monthly_success_rate": "שיעור הצלחה",
   "monthly_calendar_title": "לוח שנה יומי",
-  "monthly_day_names": ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"],
+  "monthly_day_names": [
+    "ראשון",
+    "שני",
+    "שלישי",
+    "רביעי",
+    "חמישי",
+    "שישי",
+    "שבת"
+  ],
   "monthly_today": "היום",
   "monthly_achieved": "יעדים הושגו",
   "monthly_not_achieved": "יעדים לא הושגו",
   "monthly_no_data": "אין נתונים",
   "monthly_loading": "טוען נתונים...",
   "monthly_locale": "he-IL",
-
   "login_title": "התחברות",
   "login_subtitle": "התחבר/י כדי לראות את יומן האוכל שלך",
   "login_email": "אימייל",
@@ -129,5 +129,17 @@
   "login_loading": "מתחבר...",
   "login_error_credentials": "אימייל או סיסמה שגויים.",
   "login_error_server": "אין חיבור לשרת. ודא/י שהאפליקציה רצה ונסה/י שוב.",
-  "login_logout": "התנתקות"
+  "login_logout": "התנתקות",
+  "login_hero_title": "לאכול בכוונה. לעקוב בקלות.",
+  "login_hero_text": "רישום ארוחות בשניות, מעקב אחרי חלבון, פחמימות ושומן, וכל החודש במבט אחד.",
+  "login_feature_daily": "מאקרו יומי",
+  "login_feature_monthly": "מגמות חודשיות",
+  "login_feature_library": "ספריית מזונות",
+  "login_show_password": "הצגת סיסמה",
+  "login_hide_password": "הסתרת סיסמה",
+  "login_error_email_invalid": "יש להזין כתובת אימייל תקינה.",
+  "login_error_password_required": "יש להזין סיסמה.",
+  "login_error_timeout": "השרת לא הגיב בזמן. נסה/י שוב.",
+  "login_error_offline": "אין חיבור לאינטרנט. בדוק/י את החיבור ונסה/י שוב.",
+  "login_error_rate_limited": "יותר מדי ניסיונות. המתן/י רגע ונסה/י שוב."
 }
