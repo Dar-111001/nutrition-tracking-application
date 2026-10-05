@@ -6,7 +6,12 @@ import path from 'path'
 export default defineConfig({
   plugins: [react()],
   server: {
-    allowedHosts: true
+    allowedHosts: true,
+    // Same-origin API in dev too: forward PocketBase routes to the local container
+    proxy: {
+      '/api': process.env.POCKETBASE_URL || 'http://localhost:8090',
+      '/_': process.env.POCKETBASE_URL || 'http://localhost:8090',
+    },
   },
   resolve: {
     alias: {

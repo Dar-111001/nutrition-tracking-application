@@ -1,0 +1,65 @@
+# nginx config for the app container.
+#
+# The nginx image renders this template at startup, replacing ${VARS} with env vars
+# (only vars that are set, so nginx's own $variables are left alone):
+#   PORT              port the app listens on (default 80)
+#   POCKETBASE_URL    where PocketBase is reachable from this container
+#                     (compose: http://pocketbase:8090, ECS same task: http://localhost:8090)
+#   HEALTHCHECK_PATH  health check route (see healthcheck-env.sh)
+#
+# The browser only ever talks to this server: static files, plus /api and /_
+# forwarded to PocketBase. One public port, no CORS, no backend URL in the JS bundle.
+
+server {
+    listen ${PORT};
+    server_name _;
+    root /usr/share/nginx/html;
+    index index.html;
+
+    client_max_body_size 10m;
+
+    # Health check for ECS / load balancer target groups. Reports healthy only
+    # when PocketBase answers too, so a broken backend takes the task out of rotation.
+    location = ${HEALTHCHECK_PATH} {
+        access_log off;
+        proxy_pass ${POCKETBASE_URL}/api/health;
+        proxy_connect_timeout 2s;
+        proxy_read_timeout 3s;
+    }
+
+    # PocketBase realtime (SSE) must not be buffered
+    location /api/realtime {
+        proxy_pass ${POCKETBASE_URL};
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_read_timeout 1h;
+    }
+
+    # PocketBase REST API and admin UI, same origin as the app (no CORS, one public port)
+    location ~ ^/(api|_)/ {
+        proxy_pass ${POCKETBASE_URL};
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Serve static assets with caching
+    location /assets/ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+    }
+
+    # All routes fall back to index.html (React Router SPA support)
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    gzip on;
+    gzip_types text/plain text/css application/javascript application/json image/svg+xml;
+}

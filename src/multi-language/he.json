@@ -119,5 +119,15 @@
   "monthly_not_achieved": "יעדים לא הושגו",
   "monthly_no_data": "אין נתונים",
   "monthly_loading": "טוען נתונים...",
-  "monthly_locale": "he-IL"
+  "monthly_locale": "he-IL",
+
+  "login_title": "התחברות",
+  "login_subtitle": "התחבר/י כדי לראות את יומן האוכל שלך",
+  "login_email": "אימייל",
+  "login_password": "סיסמה",
+  "login_submit": "התחברות",
+  "login_loading": "מתחבר...",
+  "login_error_credentials": "אימייל או סיסמה שגויים.",
+  "login_error_server": "אין חיבור לשרת. ודא/י שהאפליקציה רצה ונסה/י שוב.",
+  "login_logout": "התנתקות"
 }

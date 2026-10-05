@@ -1,10 +1,11 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import { Home as HomeIcon, CalendarDays, Library } from "lucide-react";
+import { Home as HomeIcon, CalendarDays, Library, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "react-i18next";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
+import { pb } from "@/api/pocketbaseClient";
 
 export default function Layout({ children, currentPageName }) {
     const { t } = useTranslation();
@@ -52,6 +53,16 @@ export default function Layout({ children, currentPageName }) {
 
                         <div className="w-px h-6 bg-gray-200 mx-1" />
                         <LanguageSwitcher />
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="rounded-xl"
+                            onClick={() => pb.authStore.clear()}
+                            title={t("login_logout")}
+                            aria-label={t("login_logout")}
+                        >
+                            <LogOut className="w-5 h-5" />
+                        </Button>
                     </nav>
                 </div>
             </header>

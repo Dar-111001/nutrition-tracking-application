@@ -4,3 +4,6 @@ dist
 .gitignore
 *.md
 docker-compose.yml
+.env
+.env.*
+!.env.example

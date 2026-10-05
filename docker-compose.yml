@@ -1,19 +1,28 @@
+# Local:     cp .env.example .env && docker compose up --build   ->  http://localhost:3000
+# Registry:  REGISTRY=<account>.dkr.ecr.<region>.amazonaws.com TAG=v1 docker compose build && docker compose push
 services:
   app:
+    image: ${REGISTRY:-nutrition}/nutrition-app:${TAG:-latest}
     build:
       context: .
-      args:
-        VITE_POCKETBASE_URL: http://localhost:8090
     ports:
       - "3000:80"
+    environment:
+      POCKETBASE_URL: http://pocketbase:8090
+      HEALTHCHECK_PATH: ${HEALTHCHECK_PATH:-/health}
+      HEALTHCHECK_PORT: ${HEALTHCHECK_PORT:-}
+      HEALTHCHECK_URL: ${HEALTHCHECK_URL:-}
     depends_on:
-      - pocketbase
+      pocketbase:
+        condition: service_healthy
     restart: unless-stopped
 
   pocketbase:
+    image: ${REGISTRY:-nutrition}/nutrition-pocketbase:${TAG:-latest}
     build:
       context: .
       dockerfile: Dockerfile.pocketbase
+    # Exposed locally for `npm run dev` and direct admin access; on ECS only nginx is public
     ports:
       - "8090:8090"
     env_file:

@@ -1,0 +1,26 @@
+#!/bin/sh
+# Runs at container start (the nginx image sources /docker-entrypoint.d/*.envsh),
+# right before it renders /etc/nginx/templates/*.template into /etc/nginx/conf.d.
+#
+# Validates the health check env vars and, when HEALTHCHECK_PORT is not the app
+# port, adds a second server that answers only the health check on that port.
+
+. /usr/local/lib/healthcheck-env.sh
+
+case "$HEALTHCHECK_PATH" in
+  /*) ;;
+  *) echo "ERROR: HEALTHCHECK_PATH must start with / (got '$HEALTHCHECK_PATH')" >&2; exit 1 ;;
+esac
+for _port in "$PORT" "$HEALTHCHECK_PORT"; do
+  case "$_port" in
+    ''|*[!0-9]*) echo "ERROR: PORT and HEALTHCHECK_PORT must be numbers (got '$_port')" >&2; exit 1 ;;
+  esac
+done
+
+if [ "$HEALTHCHECK_PORT" != "$PORT" ]; then
+  cp /etc/nginx/optional-templates/healthcheck-server.conf.template /etc/nginx/templates/
+else
+  rm -f /etc/nginx/templates/healthcheck-server.conf.template /etc/nginx/conf.d/healthcheck-server.conf
+fi
+
+echo "nginx: app on :${PORT}, health check on :${HEALTHCHECK_PORT}${HEALTHCHECK_PATH}, PocketBase at ${POCKETBASE_URL}"
