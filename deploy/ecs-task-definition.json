@@ -1,0 +1,71 @@
+{
+  "family": "nutrition-app",
+  "requiresCompatibilities": ["FARGATE"],
+  "networkMode": "awsvpc",
+  "cpu": "512",
+  "memory": "1024",
+  "executionRoleArn": "arn:aws:iam::<ACCOUNT_ID>:role/ecsTaskExecutionRole",
+  "containerDefinitions": [
+    {
+      "name": "app",
+      "image": "<ACCOUNT_ID>.dkr.ecr.<REGION>.amazonaws.com/nutrition-app:<TAG>",
+      "essential": true,
+      "portMappings": [{ "containerPort": 80, "protocol": "tcp" }],
+      "environment": [
+        { "name": "PORT", "value": "80" },
+        { "name": "POCKETBASE_URL", "value": "http://localhost:8090" },
+        { "name": "HEALTHCHECK_PATH", "value": "/health" }
+      ],
+      "dependsOn": [{ "containerName": "pocketbase", "condition": "HEALTHY" }],
+      "healthCheck": {
+        "command": ["CMD", "healthcheck"],
+        "interval": 15, "timeout": 5, "retries": 3, "startPeriod": 30
+      },
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/nutrition-app",
+          "awslogs-region": "<REGION>",
+          "awslogs-stream-prefix": "app",
+          "awslogs-create-group": "true"
+        }
+      }
+    },
+    {
+      "name": "pocketbase",
+      "image": "<ACCOUNT_ID>.dkr.ecr.<REGION>.amazonaws.com/nutrition-pocketbase:<TAG>",
+      "essential": true,
+      "environment": [
+        { "name": "PB_ADMIN_EMAIL", "value": "<ADMIN_EMAIL>" },
+        { "name": "APP_USER_EMAIL", "value": "<APP_LOGIN_EMAIL>" }
+      ],
+      "secrets": [
+        { "name": "PB_ADMIN_PASSWORD", "valueFrom": "arn:aws:ssm:<REGION>:<ACCOUNT_ID>:parameter/nutrition/PB_ADMIN_PASSWORD" },
+        { "name": "APP_USER_PASSWORD", "valueFrom": "arn:aws:ssm:<REGION>:<ACCOUNT_ID>:parameter/nutrition/APP_USER_PASSWORD" }
+      ],
+      "mountPoints": [{ "sourceVolume": "pb_data", "containerPath": "/pb/pb_data" }],
+      "healthCheck": {
+        "command": ["CMD-SHELL", "curl -sf http://127.0.0.1:8090/api/health || exit 1"],
+        "interval": 10, "timeout": 3, "retries": 5, "startPeriod": 20
+      },
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/nutrition-app",
+          "awslogs-region": "<REGION>",
+          "awslogs-stream-prefix": "pocketbase",
+          "awslogs-create-group": "true"
+        }
+      }
+    }
+  ],
+  "volumes": [
+    {
+      "name": "pb_data",
+      "efsVolumeConfiguration": {
+        "fileSystemId": "<EFS_FILE_SYSTEM_ID>",
+        "transitEncryption": "ENABLED"
+      }
+    }
+  ]
+}

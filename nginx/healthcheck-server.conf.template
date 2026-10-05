@@ -1,0 +1,16 @@
+# Only used when HEALTHCHECK_PORT differs from PORT: a port that serves nothing but the health check.
+server {
+    listen ${HEALTHCHECK_PORT};
+    server_name _;
+
+    location = ${HEALTHCHECK_PATH} {
+        access_log off;
+        proxy_pass ${POCKETBASE_URL}/api/health;
+        proxy_connect_timeout 2s;
+        proxy_read_timeout 3s;
+    }
+
+    location / {
+        return 404;
+    }
+}

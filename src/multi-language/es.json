@@ -119,5 +119,15 @@
   "monthly_not_achieved": "Metas no alcanzadas",
   "monthly_no_data": "Sin datos",
   "monthly_loading": "Cargando datos...",
-  "monthly_locale": "es-AR"
+  "monthly_locale": "es-AR",
+
+  "login_title": "Iniciar sesión",
+  "login_subtitle": "Iniciá sesión para ver tu diario de comidas",
+  "login_email": "Email",
+  "login_password": "Contraseña",
+  "login_submit": "Iniciar sesión",
+  "login_loading": "Iniciando sesión...",
+  "login_error_credentials": "Email o contraseña incorrectos.",
+  "login_error_server": "No se puede conectar con el servidor. Verificá que la app esté corriendo e intentá de nuevo.",
+  "login_logout": "Cerrar sesión"
 }

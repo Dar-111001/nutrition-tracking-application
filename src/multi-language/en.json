@@ -119,5 +119,15 @@
   "monthly_not_achieved": "Goals not achieved",
   "monthly_no_data": "No data",
   "monthly_loading": "Loading data...",
-  "monthly_locale": "en-US"
+  "monthly_locale": "en-US",
+
+  "login_title": "Sign in",
+  "login_subtitle": "Sign in to see your food journal",
+  "login_email": "Email",
+  "login_password": "Password",
+  "login_submit": "Sign in",
+  "login_loading": "Signing in...",
+  "login_error_credentials": "Wrong email or password.",
+  "login_error_server": "Can't reach the server. Check that the app is running and try again.",
+  "login_logout": "Sign out"
 }
