@@ -20,6 +20,17 @@
 # =============================================================================
 
 # -----------------------------------------------------------------------------
+# On/off switch
+# -----------------------------------------------------------------------------
+
+# true: create (or keep) the whole application.
+# false: the next `terraform plan` / `terraform apply` deletes every resource
+#   of this stack (database storage included, so the data is gone). Set it
+#   back to true to rebuild everything. The state backend from ./bootstrap is
+#   deliberately left alone: Terraform needs it to remember what to delete.
+# create = "" # keep empty for default [true]
+
+# -----------------------------------------------------------------------------
 # Required
 # -----------------------------------------------------------------------------
 
@@ -143,8 +154,10 @@ pocketbase_admin_email = "<ADMIN_EMAIL>"
 #     costs about 200 USD/month.
 # pocketbase_storage = "" # keep empty for default [gcs]
 
-# Let `terraform destroy` delete the data bucket with the database in it.
-# data_bucket_force_destroy = "" # keep empty for default [false]
+# Let Terraform delete the data bucket with the database in it, which is what
+# makes create = false remove everything. Set to false to protect the data
+# (then create = false and destroy stop at the non-empty bucket).
+# data_bucket_force_destroy = "" # keep empty for default [true]
 
 # Filestore settings (only used with pocketbase_storage = "filestore").
 # filestore_tier = "" # keep empty for default [BASIC_HDD]

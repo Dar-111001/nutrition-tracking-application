@@ -9,11 +9,12 @@
 module "alb" {
   source  = "terraform-aws-modules/alb/aws"
   version = "~> 10.5"
+  count   = var.create ? 1 : 0
 
   name               = local.name
   load_balancer_type = "application"
-  vpc_id             = module.vpc.vpc_id
-  subnets            = module.vpc.public_subnets
+  vpc_id             = module.vpc[0].vpc_id
+  subnets            = module.vpc[0].public_subnets
 
   enable_deletion_protection = var.alb_deletion_protection
 
@@ -36,7 +37,7 @@ module "alb" {
   security_group_egress_rules = {
     vpc = {
       ip_protocol = "-1"
-      cidr_ipv4   = module.vpc.vpc_cidr_block
+      cidr_ipv4   = module.vpc[0].vpc_cidr_block
     }
   }
 

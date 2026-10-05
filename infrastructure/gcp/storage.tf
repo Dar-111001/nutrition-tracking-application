@@ -14,7 +14,7 @@
 module "data_bucket" {
   source  = "terraform-google-modules/cloud-storage/google//modules/simple_bucket"
   version = "~> 12.4"
-  count   = local.use_filestore ? 0 : 1
+  count   = var.create && !local.use_filestore ? 1 : 0
 
   project_id = local.project_id
   name       = "${local.project_id}-${local.name}-pb-data"
@@ -28,7 +28,7 @@ module "data_bucket" {
   iam_members = [
     {
       role   = "roles/storage.objectUser"
-      member = module.run_service_account.iam_email
+      member = module.run_service_account[0].iam_email
     }
   ]
 }
@@ -36,7 +36,7 @@ module "data_bucket" {
 # No terraform-google-modules module exists for Filestore, so this one is a
 # plain resource.
 resource "google_filestore_instance" "pocketbase" {
-  count = local.use_filestore ? 1 : 0
+  count = var.create && local.use_filestore ? 1 : 0
 
   project  = local.project_id
   name     = "${local.name}-pb-data"
@@ -49,7 +49,7 @@ resource "google_filestore_instance" "pocketbase" {
   }
 
   networks {
-    network = module.vpc.network_name
+    network = module.vpc[0].network_name
     modes   = ["MODE_IPV4"]
   }
 }

@@ -5,10 +5,11 @@
 module "log_analytics" {
   source  = "Azure/avm-res-operationalinsights-workspace/azurerm"
   version = "~> 0.5"
+  count   = var.create ? 1 : 0
 
   name                = "log-${local.name}"
   location            = var.location
-  resource_group_name = module.resource_group.name
+  resource_group_name = module.resource_group[0].name
   tags                = local.tags
   enable_telemetry    = var.enable_telemetry
 
@@ -24,14 +25,15 @@ module "log_analytics" {
 module "container_app_environment" {
   source  = "Azure/avm-res-app-managedenvironment/azurerm"
   version = "~> 0.5"
+  count   = var.create ? 1 : 0
 
   name                = "cae-${local.name}"
   location            = var.location
-  resource_group_name = module.resource_group.name
+  resource_group_name = module.resource_group[0].name
   tags                = local.tags
   enable_telemetry    = var.enable_telemetry
 
-  log_analytics_workspace = { resource_id = module.log_analytics.resource_id }
+  log_analytics_workspace = { resource_id = module.log_analytics[0].resource_id }
 
   # Workload-profiles environment with only the free Consumption profile:
   # supports a small /27+ subnet and costs nothing until the app runs
@@ -54,7 +56,7 @@ module "container_app_environment" {
       account_key         = local.data_storage_key
       account_key_version = 1
       azure_file = {
-        account_name = module.data_storage.name
+        account_name = module.data_storage[0].name
         share_name   = "pbdata"
         access_mode  = "ReadWrite"
       }

@@ -48,6 +48,7 @@ locals {
 module "resource_group" {
   source  = "Azure/avm-res-resources-resourcegroup/azurerm"
   version = "~> 0.4"
+  count   = var.create ? 1 : 0
 
   name             = "rg-${local.name}"
   location         = var.location

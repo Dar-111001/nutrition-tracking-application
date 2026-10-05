@@ -1,36 +1,36 @@
 output "app_url" {
   description = "Open this in a browser once the app is running."
-  value       = module.container_app.fqdn_url
+  value       = try(module.container_app[0].fqdn_url, null)
 }
 
 output "pocketbase_admin_url" {
   description = "PocketBase admin UI (log in with the admin email and password)."
-  value       = "${module.container_app.fqdn_url}/_/"
+  value       = try("${module.container_app[0].fqdn_url}/_/", null)
 }
 
 output "registry_url" {
   description = "Container registry to push images to: REGISTRY=<this> TAG=<image_tag> docker compose build && docker compose push"
-  value       = local.registry_server
+  value       = var.create ? local.registry_server : null
 }
 
 output "resource_group_name" {
   description = "Resource group holding everything (delete it to remove the whole app)."
-  value       = module.resource_group.name
+  value       = try(module.resource_group[0].name, null)
 }
 
 output "container_app_name" {
   description = "Container App name. Redeploy after pushing new images with: az containerapp update -n <name> -g <resource group> --image ... (or terraform apply with a new image_tag)"
-  value       = module.container_app.name
+  value       = try(module.container_app[0].name, null)
 }
 
 output "storage_account_name" {
   description = "Storage account holding the PocketBase file share."
-  value       = module.data_storage.name
+  value       = try(module.data_storage[0].name, null)
 }
 
 output "vnet_name" {
   description = "Name of the virtual network."
-  value       = module.vnet.name
+  value       = try(module.vnet[0].name, null)
 }
 
 output "pocketbase_admin_password" {

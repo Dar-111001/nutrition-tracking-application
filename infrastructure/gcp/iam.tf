@@ -7,6 +7,7 @@
 module "run_service_account" {
   source  = "terraform-google-modules/service-accounts/google//modules/simple-sa"
   version = "~> 5.1"
+  count   = var.create ? 1 : 0
 
   project_id   = local.project_id
   name         = "${local.name}-run"

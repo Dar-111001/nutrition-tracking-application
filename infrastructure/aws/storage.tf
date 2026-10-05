@@ -8,6 +8,7 @@
 module "efs" {
   source  = "terraform-aws-modules/efs/aws"
   version = "~> 2.2"
+  count   = var.create ? 1 : 0
 
   name           = "${local.name}-pocketbase"
   creation_token = "${local.name}-pocketbase"
@@ -25,14 +26,14 @@ module "efs" {
 
   # One mount target per zone, in the private subnets (reachable from the
   # public ones too, since they share the VPC)
-  mount_targets = { for i, az in local.azs : az => { subnet_id = module.vpc.private_subnets[i] } }
+  mount_targets = { for i, az in local.azs : az => { subnet_id = module.vpc[0].private_subnets[i] } }
 
   security_group_name   = "${local.name}-efs"
-  security_group_vpc_id = module.vpc.vpc_id
+  security_group_vpc_id = module.vpc[0].vpc_id
   security_group_ingress_rules = {
     vpc = {
       description = "NFS from inside the VPC"
-      cidr_ipv4   = module.vpc.vpc_cidr_block
+      cidr_ipv4   = module.vpc[0].vpc_cidr_block
     }
   }
 

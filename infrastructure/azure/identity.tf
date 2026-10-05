@@ -4,10 +4,11 @@
 module "app_identity" {
   source  = "Azure/avm-res-managedidentity-userassignedidentity/azurerm"
   version = "~> 0.5"
+  count   = var.create ? 1 : 0
 
   name                = "id-${local.name}"
   location            = var.location
-  resource_group_name = module.resource_group.name
+  resource_group_name = module.resource_group[0].name
   tags                = local.tags
   enable_telemetry    = var.enable_telemetry
 }

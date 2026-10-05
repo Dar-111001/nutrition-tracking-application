@@ -114,7 +114,19 @@ terraform apply tfplan
 
 **5. Open the app.** `terraform output app_url` prints the URL, and `terraform output -raw pocketbase_admin_password` the generated admin password. To ship a new version, push images with a new tag, set `image_tag` in `terraform.tfvars`, and run `terraform plan` / `terraform apply` again.
 
-To remove everything: `terraform destroy` in `<cloud>/`, then in `<cloud>/bootstrap/` (set `force_destroy = true` there first if the state bucket still holds files).
+## Turning the app off and on: `create`
+
+Each main stack has one switch in `terraform.tfvars`:
+
+```hcl
+create = false   # default true
+```
+
+With `create = false`, the next `terraform plan` / `terraform apply` deletes **every resource of that stack**: network, registry (and its images), secrets, database storage (so the data is gone too) and the service itself. Set it back to `true` (or comment the line out again) and apply to rebuild everything from scratch. This is handy between lectures to bring the bill to zero.
+
+The switch deliberately does **not** touch `bootstrap/`. The state backend is where Terraform remembers what it created, so it must outlive the app; it costs cents per month. The generated admin password also stays the same, since it lives only in the state.
+
+To remove everything for good, including the state backend: `terraform destroy` in `<cloud>/`, then in `<cloud>/bootstrap/` (set `force_destroy = true` there first if the state bucket still holds files).
 
 ## Health checks
 

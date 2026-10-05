@@ -19,6 +19,7 @@ locals {
 module "secrets" {
   source  = "GoogleCloudPlatform/secret-manager/google"
   version = "~> 0.9"
+  count   = var.create ? 1 : 0
 
   project_id = local.project_id
   secrets = [
@@ -33,5 +34,5 @@ module "secrets" {
   ]
 
   # Only the service's own account may read them
-  secret_accessors_list = [module.run_service_account.iam_email]
+  secret_accessors_list = [module.run_service_account[0].iam_email]
 }

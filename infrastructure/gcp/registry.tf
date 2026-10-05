@@ -6,7 +6,7 @@
 module "artifact_registry" {
   source  = "GoogleCloudPlatform/artifact-registry/google"
   version = "~> 0.8"
-  count   = var.create_artifact_registry ? 1 : 0
+  count   = var.create && var.create_artifact_registry ? 1 : 0
 
   project_id    = local.project_id
   location      = var.region

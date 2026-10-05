@@ -12,12 +12,13 @@ locals {
 module "container_app" {
   source  = "Azure/avm-res-app-containerapp/azurerm"
   version = "~> 0.9"
+  count   = var.create ? 1 : 0
 
   name                                  = "ca-${local.name}"
   location                              = var.location
-  resource_group_name                   = module.resource_group.name
-  resource_group_id                     = module.resource_group.resource_id
-  container_app_environment_resource_id = module.container_app_environment.resource_id
+  resource_group_name                   = module.resource_group[0].name
+  resource_group_id                     = module.resource_group[0].resource_id
+  container_app_environment_resource_id = module.container_app_environment[0].resource_id
   workload_profile_name                 = "Consumption"
   revision_mode                         = "Single"
   tags                                  = local.tags
@@ -25,12 +26,12 @@ module "container_app" {
 
   # ---- Identity and registry ----
   managed_identities = {
-    user_assigned_resource_ids = [module.app_identity.resource_id]
+    user_assigned_resource_ids = [module.app_identity[0].resource_id]
   }
   registries = var.create_container_registry ? [
     {
       server   = local.registry_server
-      identity = module.app_identity.resource_id
+      identity = module.app_identity[0].resource_id
     }
   ] : null
 

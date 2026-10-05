@@ -9,6 +9,7 @@
 module "ecs_cluster" {
   source  = "terraform-aws-modules/ecs/aws//modules/cluster"
   version = "~> 7.6"
+  count   = var.create ? 1 : 0
 
   name = local.name
 
@@ -36,9 +37,10 @@ locals {
 module "ecs_service" {
   source  = "terraform-aws-modules/ecs/aws//modules/service"
   version = "~> 7.6"
+  count   = var.create ? 1 : 0
 
   name        = local.name
-  cluster_arn = module.ecs_cluster.arn
+  cluster_arn = module.ecs_cluster[0].arn
 
   # ---- Task size and platform ----
   cpu    = var.task_cpu
@@ -83,14 +85,14 @@ module "ecs_service" {
         from_port                    = local.app_port
         to_port                      = local.app_port
         ip_protocol                  = "tcp"
-        referenced_security_group_id = module.alb.security_group_id
+        referenced_security_group_id = module.alb[0].security_group_id
       }
       healthcheck = {
         description                  = "Health check port from the load balancer"
         from_port                    = var.healthcheck_port
         to_port                      = var.healthcheck_port
         ip_protocol                  = "tcp"
-        referenced_security_group_id = module.alb.security_group_id
+        referenced_security_group_id = module.alb[0].security_group_id
       }
     } : k => v if k == "app" || local.separate_healthcheck_port
   }
@@ -104,7 +106,7 @@ module "ecs_service" {
 
   load_balancer = {
     app = {
-      target_group_arn = module.alb.target_groups["app"].arn
+      target_group_arn = module.alb[0].target_groups["app"].arn
       container_name   = "app"
       container_port   = local.app_port
     }
@@ -114,7 +116,7 @@ module "ecs_service" {
   volume = {
     pb_data = {
       efs_volume_configuration = {
-        file_system_id     = module.efs.id
+        file_system_id     = module.efs[0].id
         transit_encryption = "ENABLED"
       }
     }
@@ -122,8 +124,8 @@ module "ecs_service" {
 
   # ---- Secrets the execution role may read ----
   task_exec_ssm_param_arns = [
-    module.ssm_pocketbase_admin_password.ssm_parameter_arn,
-    module.ssm_app_user_password.ssm_parameter_arn,
+    module.ssm_pocketbase_admin_password[0].ssm_parameter_arn,
+    module.ssm_app_user_password[0].ssm_parameter_arn,
   ]
 
   # ---- Containers (they share localhost) ----
@@ -186,8 +188,8 @@ module "ecs_service" {
         { name = "APP_USER_EMAIL", value = local.app_user_email },
       ]
       secrets = [
-        { name = "PB_ADMIN_PASSWORD", valueFrom = module.ssm_pocketbase_admin_password.ssm_parameter_arn },
-        { name = "APP_USER_PASSWORD", valueFrom = module.ssm_app_user_password.ssm_parameter_arn },
+        { name = "PB_ADMIN_PASSWORD", valueFrom = module.ssm_pocketbase_admin_password[0].ssm_parameter_arn },
+        { name = "APP_USER_PASSWORD", valueFrom = module.ssm_app_user_password[0].ssm_parameter_arn },
       ]
       mountPoints = [
         { sourceVolume = "pb_data", containerPath = "/pb/pb_data", readOnly = false }

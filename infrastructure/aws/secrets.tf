@@ -16,6 +16,7 @@ locals {
 module "ssm_pocketbase_admin_password" {
   source  = "terraform-aws-modules/ssm-parameter/aws"
   version = "~> 2.1"
+  count   = var.create ? 1 : 0
 
   name        = "/${var.project_name}/${var.environment}/PB_ADMIN_PASSWORD"
   description = "PocketBase admin password"
@@ -26,6 +27,7 @@ module "ssm_pocketbase_admin_password" {
 module "ssm_app_user_password" {
   source  = "terraform-aws-modules/ssm-parameter/aws"
   version = "~> 2.1"
+  count   = var.create ? 1 : 0
 
   name        = "/${var.project_name}/${var.environment}/APP_USER_PASSWORD"
   description = "Login password for the nutrition app"

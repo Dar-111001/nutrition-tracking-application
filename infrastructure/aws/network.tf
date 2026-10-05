@@ -9,6 +9,7 @@
 module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
   version = "~> 6.7"
+  count   = var.create ? 1 : 0
 
   name = local.name
   cidr = var.vpc_cidr
@@ -26,6 +27,7 @@ module "vpc" {
 }
 
 locals {
-  task_subnet_ids       = var.enable_nat_gateway ? module.vpc.private_subnets : module.vpc.public_subnets
+  # try(): with create = false there is no VPC
+  task_subnet_ids       = try(var.enable_nat_gateway ? module.vpc[0].private_subnets : module.vpc[0].public_subnets, [])
   task_assign_public_ip = !var.enable_nat_gateway
 }

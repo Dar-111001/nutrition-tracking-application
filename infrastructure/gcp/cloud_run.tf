@@ -7,6 +7,7 @@
 # itself is written out here. Everything around it uses modules.
 
 resource "google_cloud_run_v2_service" "app" {
+  count    = var.create ? 1 : 0
   project  = local.project_id
   name     = local.name
   location = var.region
@@ -16,7 +17,7 @@ resource "google_cloud_run_v2_service" "app" {
   deletion_protection  = var.cloud_run_deletion_protection
 
   template {
-    service_account       = module.run_service_account.email
+    service_account       = module.run_service_account[0].email
     execution_environment = "EXECUTION_ENVIRONMENT_GEN2" # needed for volume mounts
 
     # ---- Exactly one instance at most ----
@@ -32,7 +33,7 @@ resource "google_cloud_run_v2_service" "app" {
     vpc_access {
       egress = "PRIVATE_RANGES_ONLY"
       network_interfaces {
-        network    = module.vpc.network_name
+        network    = module.vpc[0].network_name
         subnetwork = local.subnet_name
       }
     }

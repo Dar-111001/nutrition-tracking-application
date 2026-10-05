@@ -10,7 +10,7 @@ module "ecr" {
   source  = "terraform-aws-modules/ecr/aws"
   version = "~> 3.2"
 
-  for_each = var.create_ecr_repositories ? local.images : toset([])
+  for_each = var.create && var.create_ecr_repositories ? local.images : toset([])
 
   # Same names docker-compose.yml uses: nutrition-app, nutrition-api, nutrition-pocketbase
   repository_name                 = "${var.project_name}-${each.key}"
@@ -36,7 +36,7 @@ module "ecr" {
 }
 
 locals {
-  # try(): the repositories don't exist when create_ecr_repositories = false
+  # try(): the repositories don't exist when create or create_ecr_repositories is false
   ecr_urls = { for k in local.images : k => try(module.ecr[k].repository_url, "") }
 
   app_image        = var.app_image != "" ? var.app_image : "${local.ecr_urls["app"]}:${var.image_tag}"

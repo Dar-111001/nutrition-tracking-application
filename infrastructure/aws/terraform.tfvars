@@ -19,6 +19,17 @@
 # =============================================================================
 
 # -----------------------------------------------------------------------------
+# On/off switch
+# -----------------------------------------------------------------------------
+
+# true: create (or keep) the whole application.
+# false: the next `terraform plan` / `terraform apply` deletes every resource
+#   of this stack (database storage included, so the data is gone). Set it
+#   back to true to rebuild everything. The state backend from ./bootstrap is
+#   deliberately left alone: Terraform needs it to remember what to delete.
+# create = "" # keep empty for default [true]
+
+# -----------------------------------------------------------------------------
 # Required
 # -----------------------------------------------------------------------------
 

@@ -1,4 +1,14 @@
 # -----------------------------------------------------------------------------
+# On/off switch
+# -----------------------------------------------------------------------------
+
+variable "create" {
+  description = "true creates (or keeps) the whole application. false deletes every resource of this stack on the next apply. The state backend from ./bootstrap is not touched."
+  type        = bool
+  default     = true
+}
+
+# -----------------------------------------------------------------------------
 # Project and naming
 # -----------------------------------------------------------------------------
 
@@ -255,9 +265,9 @@ variable "pocketbase_storage" {
 }
 
 variable "data_bucket_force_destroy" {
-  description = "Let `terraform destroy` delete the data bucket even when it still holds the database (gcs storage only)."
+  description = "Let Terraform delete the data bucket even when it still holds the database (gcs storage only). Needed for create = false to remove everything; set false to protect the data."
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "filestore_tier" {

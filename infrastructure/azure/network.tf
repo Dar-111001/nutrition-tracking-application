@@ -5,10 +5,11 @@
 module "nsg" {
   source  = "Azure/avm-res-network-networksecuritygroup/azurerm"
   version = "~> 0.5"
+  count   = var.create ? 1 : 0
 
   name                = "nsg-${local.name}-aca"
   location            = var.location
-  resource_group_name = module.resource_group.name
+  resource_group_name = module.resource_group[0].name
   tags                = local.tags
   enable_telemetry    = var.enable_telemetry
 
@@ -34,10 +35,11 @@ module "nsg" {
 module "vnet" {
   source  = "Azure/avm-res-network-virtualnetwork/azurerm"
   version = "~> 0.22"
+  count   = var.create ? 1 : 0
 
   name             = "vnet-${local.name}"
   location         = var.location
-  parent_id        = module.resource_group.resource_id
+  parent_id        = module.resource_group[0].resource_id
   address_space    = [var.vnet_address_space]
   tags             = local.tags
   enable_telemetry = var.enable_telemetry
@@ -58,11 +60,12 @@ module "vnet" {
       # Lets the storage firewall recognise traffic from this subnet
       service_endpoints = ["Microsoft.Storage"]
 
-      network_security_group = { id = module.nsg.resource_id }
+      network_security_group = { id = module.nsg[0].resource_id }
     }
   }
 }
 
 locals {
-  aca_subnet_id = module.vnet.subnets["aca"].resource_id
+  # try(): with create = false there is no VNet
+  aca_subnet_id = try(module.vnet[0].subnets["aca"].resource_id, null)
 }

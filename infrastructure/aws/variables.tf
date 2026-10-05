@@ -1,4 +1,14 @@
 # -----------------------------------------------------------------------------
+# On/off switch
+# -----------------------------------------------------------------------------
+
+variable "create" {
+  description = "true creates (or keeps) the whole application. false deletes every resource of this stack on the next apply. The state backend from ./bootstrap is not touched."
+  type        = bool
+  default     = true
+}
+
+# -----------------------------------------------------------------------------
 # Account and naming
 # -----------------------------------------------------------------------------
 

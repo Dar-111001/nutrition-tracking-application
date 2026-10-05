@@ -11,10 +11,11 @@
 module "data_storage" {
   source  = "Azure/avm-res-storage-storageaccount/azurerm"
   version = "~> 0.10"
+  count   = var.create ? 1 : 0
 
   name      = var.storage_account_name != "" ? var.storage_account_name : substr("st${local.compact_name}${random_string.suffix.result}", 0, 24)
   location  = var.location
-  parent_id = module.resource_group.resource_id
+  parent_id = module.resource_group[0].resource_id
   tags      = local.tags
 
   account_kind             = "StorageV2"
@@ -49,13 +50,15 @@ module "data_storage" {
 # The Container Apps environment needs the account key to mount the share.
 # It is read from Azure at apply time and kept only in the (private) state.
 data "azapi_resource_action" "data_storage_keys" {
+  count = var.create ? 1 : 0
+
   type        = "Microsoft.Storage/storageAccounts@2023-05-01"
-  resource_id = module.data_storage.resource_id
+  resource_id = module.data_storage[0].resource_id
   action      = "listKeys"
 
   sensitive_response_export_values = ["keys"]
 }
 
 locals {
-  data_storage_key = data.azapi_resource_action.data_storage_keys.sensitive_output.keys[0].value
+  data_storage_key = try(data.azapi_resource_action.data_storage_keys[0].sensitive_output.keys[0].value, null)
 }

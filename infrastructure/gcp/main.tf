@@ -42,6 +42,7 @@ locals {
 module "project_services" {
   source  = "terraform-google-modules/project-factory/google//modules/project_services"
   version = "~> 18.4"
+  count   = var.create ? 1 : 0
 
   project_id = var.project_id
   activate_apis = concat(
@@ -62,5 +63,6 @@ module "project_services" {
 }
 
 locals {
-  project_id = module.project_services.project_id
+  # try(): with create = false the module is gone, but names still need the ID
+  project_id = try(module.project_services[0].project_id, var.project_id)
 }
