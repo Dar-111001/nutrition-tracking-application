@@ -1,4 +1,4 @@
-FROM alpine:latest
+FROM alpine:3.20
 ARG PB_VERSION=0.22.20
 
 RUN apk add --no-cache unzip ca-certificates wget curl jq
@@ -18,6 +18,11 @@ RUN ARCH=$(uname -m) && \
 COPY pb_setup.sh /pb_setup.sh
 RUN chmod +x /pb_setup.sh
 
+# All state lives here: mount a persistent volume (docker volume locally, EFS on ECS)
+ENV PB_PORT=8090 \
+    PB_DATA_DIR=/pb/pb_data
 VOLUME ["/pb/pb_data"]
 EXPOSE 8090
+HEALTHCHECK --interval=10s --timeout=3s --start-period=15s --retries=5 \
+  CMD curl -sf "http://127.0.0.1:${PB_PORT}/api/health" > /dev/null || exit 1
 ENTRYPOINT ["/pb_setup.sh"]
