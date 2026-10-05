@@ -3,7 +3,6 @@
   "nav_daily": "Daily Journal",
   "nav_monthly": "Monthly Tracker",
   "nav_library": "Food Library",
-
   "home_title": "Nutrition Tracker",
   "home_subtitle": "Auto-search nutritional values with AI | Macro portion method",
   "home_set_goals": "Set Goals",
@@ -26,14 +25,12 @@
   "home_example_almonds": "Almonds (31g) ≈ 1.6 fat portions",
   "home_example_avocado": "Avocado (112g) ≈ 1.8 fat portions",
   "home_confirm_clear": "Are you sure you want to delete all of today's meals?",
-
   "progress_title": "Daily Tracking",
   "progress_protein": "Protein",
   "progress_carbs": "Carbs",
   "progress_fat": "Fat",
   "progress_remaining": "Remaining: {{count}} portions",
   "progress_goal_achieved": "🎉 Goal achieved!",
-
   "foodlist_title": "My Meals Today",
   "foodlist_quick_add": "Quick Add",
   "foodlist_empty": "You haven't added any meals today",
@@ -45,7 +42,6 @@
   "foodlist_protein_portions": "{{count}} protein portions",
   "foodlist_carbs_portions": "{{count}} carb portions",
   "foodlist_fat_portions": "{{count}} fat portions",
-
   "form_title": "Add New Food (per 100g)",
   "form_name_label": "Food Name",
   "form_name_placeholder": "e.g. Cooked chicken breast",
@@ -65,7 +61,6 @@
   "form_alert_no_name": "Please enter a food name before searching",
   "form_alert_not_found": "Could not find nutritional info for this food. Please enter manually.",
   "form_alert_error": "Search error. Please try again or enter manually.",
-
   "quick_title": "Quick Add from Library",
   "quick_desc": "Select an item from the library, enter weight, and the meal will be added to your journal.",
   "quick_select_label": "Select Food",
@@ -77,7 +72,6 @@
   "quick_fat": "Fat",
   "quick_submit": "Add to Journal",
   "quick_submitting": "Adding...",
-
   "library_title": "My Food Library",
   "library_subtitle": "Manage your common food items",
   "library_list_title": "Items List",
@@ -106,21 +100,27 @@
   "library_alert_bad_csv": "The file must contain the columns: name, protein_per_100g, carbs_per_100g, fat_per_100g",
   "library_alert_upload_success": "Successfully uploaded {{count}} food items!",
   "library_alert_upload_error": "Error reading the file",
-
   "monthly_title": "Monthly Tracker",
   "monthly_subtitle": "Last 30 Days",
   "monthly_green_days": "Days goals achieved",
   "monthly_red_days": "Days goals not achieved",
   "monthly_success_rate": "Success Rate",
   "monthly_calendar_title": "Daily Calendar",
-  "monthly_day_names": ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
+  "monthly_day_names": [
+    "Sun",
+    "Mon",
+    "Tue",
+    "Wed",
+    "Thu",
+    "Fri",
+    "Sat"
+  ],
   "monthly_today": "Today",
   "monthly_achieved": "Goals achieved",
   "monthly_not_achieved": "Goals not achieved",
   "monthly_no_data": "No data",
   "monthly_loading": "Loading data...",
   "monthly_locale": "en-US",
-
   "login_title": "Sign in",
   "login_subtitle": "Sign in to see your food journal",
   "login_email": "Email",
@@ -129,5 +129,17 @@
   "login_loading": "Signing in...",
   "login_error_credentials": "Wrong email or password.",
   "login_error_server": "Can't reach the server. Check that the app is running and try again.",
-  "login_logout": "Sign out"
+  "login_logout": "Sign out",
+  "login_hero_title": "Eat with intent. Track with ease.",
+  "login_hero_text": "Log meals in seconds, watch your protein, carbs and fat add up, and see the whole month at a glance.",
+  "login_feature_daily": "Daily macros",
+  "login_feature_monthly": "Monthly trends",
+  "login_feature_library": "Food library",
+  "login_show_password": "Show password",
+  "login_hide_password": "Hide password",
+  "login_error_email_invalid": "Enter a valid email address.",
+  "login_error_password_required": "Enter your password.",
+  "login_error_timeout": "The server took too long to answer. Try again.",
+  "login_error_offline": "You're offline. Check your connection and try again.",
+  "login_error_rate_limited": "Too many attempts. Wait a moment and try again."
 }
