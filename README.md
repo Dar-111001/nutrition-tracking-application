@@ -65,8 +65,10 @@ A personal nutrition tracking app built with React + Vite, backed by a self-host
 │   ├── 10-healthcheck.envsh      # Startup: validates them, adds a health-only port if needed
 │   ├── healthcheck-server.conf.template
 │   └── healthcheck.sh            # Container health check command
-├── deploy/
-│   └── ecs-task-definition.json  # Example Fargate task definition (fill in the <...>)
+├── infrastructure/
+│   ├── README.md                 # How the AWS pieces fit together
+│   └── ecs/task-definition.json  # Example Fargate task definition (fill in the <...>)
+├── .github/workflows/ci.yml      # CI: builds the frontend and every image, no cloud credentials
 ├── Dockerfile                    # Multi-stage: Node build → nginx serve
 ├── Dockerfile.pocketbase         # PocketBase container with auto-setup
 ├── pb_setup.sh                   # Creates admin, collections, app login (idempotent)
@@ -162,11 +164,11 @@ docker compose build && docker compose push
 Fargate container storage is thrown away on every deploy, so the database must live on EFS:
 1. Create an EFS file system in the same VPC, with a mount target in each subnet the task uses.
 2. Allow NFS (TCP 2049) from the task's security group to the EFS security group.
-3. Mount it at `/pb/pb_data` in the `pocketbase` container (see `volumes` / `mountPoints` in `deploy/ecs-task-definition.json`).
+3. Mount it at `/pb/pb_data` in the `pocketbase` container (see `volumes` / `mountPoints` in `infrastructure/ecs/task-definition.json`).
 
 ### 3. Task definition
 
-Use `deploy/ecs-task-definition.json` as the starting point and fill in the `<...>` values. Both containers run in **one task**, so nginx reaches PocketBase at `http://localhost:8090`. Store the passwords in SSM Parameter Store or Secrets Manager (the example uses `secrets`, which needs the execution role to be allowed to read them).
+Use `infrastructure/ecs/task-definition.json` as the starting point and fill in the `<...>` values. All containers run in **one task**, so they reach each other on `localhost`: nginx calls the API at `http://localhost:4000` and PocketBase at `http://localhost:8090`. See [infrastructure/README.md](infrastructure/README.md). Store the passwords in SSM Parameter Store or Secrets Manager (the example uses `secrets`, which needs the execution role to be allowed to read them).
 
 ### 4. Service and load balancer
 

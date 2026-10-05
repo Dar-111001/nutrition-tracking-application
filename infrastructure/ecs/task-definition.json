@@ -13,10 +13,14 @@
       "portMappings": [{ "containerPort": 80, "protocol": "tcp" }],
       "environment": [
         { "name": "PORT", "value": "80" },
+        { "name": "API_URL", "value": "http://localhost:4000" },
         { "name": "POCKETBASE_URL", "value": "http://localhost:8090" },
         { "name": "HEALTHCHECK_PATH", "value": "/health" }
       ],
-      "dependsOn": [{ "containerName": "pocketbase", "condition": "HEALTHY" }],
+      "dependsOn": [
+        { "containerName": "api", "condition": "HEALTHY" },
+        { "containerName": "pocketbase", "condition": "HEALTHY" }
+      ],
       "healthCheck": {
         "command": ["CMD", "healthcheck"],
         "interval": 15, "timeout": 5, "retries": 3, "startPeriod": 30
@@ -27,6 +31,31 @@
           "awslogs-group": "/ecs/nutrition-app",
           "awslogs-region": "<REGION>",
           "awslogs-stream-prefix": "app",
+          "awslogs-create-group": "true"
+        }
+      }
+    },
+    {
+      "name": "api",
+      "image": "<ACCOUNT_ID>.dkr.ecr.<REGION>.amazonaws.com/nutrition-api:<TAG>",
+      "essential": true,
+      "portMappings": [{ "containerPort": 4000, "protocol": "tcp" }],
+      "environment": [
+        { "name": "PORT", "value": "4000" },
+        { "name": "POCKETBASE_URL", "value": "http://localhost:8090" },
+        { "name": "HEALTHCHECK_PATH", "value": "/api/health" }
+      ],
+      "dependsOn": [{ "containerName": "pocketbase", "condition": "HEALTHY" }],
+      "healthCheck": {
+        "command": ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:4000/api/health || exit 1"],
+        "interval": 15, "timeout": 5, "retries": 3, "startPeriod": 20
+      },
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/nutrition-app",
+          "awslogs-region": "<REGION>",
+          "awslogs-stream-prefix": "api",
           "awslogs-create-group": "true"
         }
       }
