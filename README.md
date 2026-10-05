@@ -106,7 +106,10 @@ All routes except login and the health checks need `Authorization: Bearer <token
 │   ├── healthcheck-server.conf.template
 │   └── healthcheck.sh            # Container health check command
 ├── infrastructure/
-│   ├── README.md                 # How the AWS pieces fit together
+│   ├── README.md                 # How to deploy with Terraform (plan/apply by hand only)
+│   ├── aws/                      # Terraform: ECS Fargate + ALB + EFS (+ state bootstrap)
+│   ├── gcp/                      # Terraform: Cloud Run + bucket/Filestore (+ state bootstrap)
+│   ├── azure/                    # Terraform: Container Apps + Azure Files (+ state bootstrap)
 │   └── ecs/task-definition.json  # Example Fargate task definition (fill in the <...>)
 ├── .github/workflows/ci.yml      # CI: builds the frontend and every image, no cloud credentials
 ├── Dockerfile                    # Multi-stage: Node build → nginx serve
@@ -210,6 +213,8 @@ Locally these come from `.env` (gitignored, and excluded from image builds). Not
 ---
 
 ## Deploying to AWS (ECR + ECS Fargate)
+
+> The quickest way to deploy is the Terraform in [`infrastructure/`](infrastructure/README.md), which builds everything below (and the same app on Google Cloud Run and Azure Container Apps) from an empty account. The manual steps here show what it does.
 
 ### 1. Push the images
 
