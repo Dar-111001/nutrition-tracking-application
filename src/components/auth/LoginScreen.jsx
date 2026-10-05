@@ -20,13 +20,13 @@ function withTimeout(promise, ms) {
     return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }
 
-// Maps any failure (thrown error or a { ok: false } result) to a translation key
+// Maps any failure to a translation key: an API error ({ code } from the
+// standard { ok: false, error } result) or a thrown error with an HTTP status
 function loginErrorKey(err) {
     if (typeof navigator !== "undefined" && navigator.onLine === false) return "login_error_offline";
-    if (err?.name === "TimeoutError") return "login_error_timeout";
-    const status = err?.status ?? err?.error?.status;
-    if (status === 400 || status === 401) return "login_error_credentials";
-    if (status === 429) return "login_error_rate_limited";
+    if (err?.name === "TimeoutError" || err?.code === "timeout") return "login_error_timeout";
+    if (err?.code === "unauthorized" || err?.status === 400 || err?.status === 401) return "login_error_credentials";
+    if (err?.code === "rate_limited" || err?.status === 429) return "login_error_rate_limited";
     return "login_error_server";
 }
 
@@ -44,7 +44,8 @@ class SceneBoundary extends Component {
 /**
  * Full-screen sign-in page.
  * @param {(email: string, password: string) => Promise<unknown>} onLogin
- *   Performs the sign-in. It may throw, or resolve to { ok: false, error } on failure.
+ *   Performs the sign-in. It may throw, or resolve to { ok: false, error: { code } }
+ *   on failure (the API's standard result, e.g. auth.login from src/api/auth.js).
  */
 export default function LoginScreen({ onLogin }) {
     const { t } = useTranslation();
