@@ -24,7 +24,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - run: npm install --no-audit --no-fund
+      # npm ci installs exactly what package-lock.json pins; fall back until the lockfile lands
+      - run: if [ -f package-lock.json ]; then npm ci; else npm install --no-audit --no-fund; fi
       - run: npm run build
       # Reported but not blocking until the existing lint errors are cleaned up
       - run: npm run lint
