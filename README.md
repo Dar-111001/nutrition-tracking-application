@@ -1,6 +1,22 @@
 # Dar Nutrition App
 
-A personal nutrition tracking app built with React + Vite, backed by a self-hosted PocketBase database. Track daily food intake, set macro goals, and manage a personal food library — all running locally in Docker with no external cloud dependencies.
+A personal nutrition tracking app built with React + Vite, backed by a self-hosted PocketBase database. Track daily food intake, set macro goals, and manage a personal food library. It runs locally with one `docker compose up`, and the same images deploy to AWS, Google Cloud or Azure with the Terraform in `infrastructure/`.
+
+**Jump to:** [Run it locally](#running-locally-with-docker) · [Deploy to AWS](#deploying-to-aws-ecs-fargate) · [Deploy to Google Cloud](#deploying-to-google-cloud-cloud-run) · [Deploy to Azure](#deploying-to-azure-container-apps)
+
+## Contents
+
+- [Features](#features)
+- [Architecture](#architecture)
+- [API contract](#api-contract)
+- [Tech Stack](#tech-stack)
+- [Folder Structure](#folder-structure)
+- [Running Locally with Docker](#running-locally-with-docker)
+- [Environment Variables](#environment-variables)
+- [Deploying to the cloud](#deploying-to-the-cloud)
+  - [AWS (ECS Fargate)](#deploying-to-aws-ecs-fargate)
+  - [Google Cloud (Cloud Run)](#deploying-to-google-cloud-cloud-run)
+  - [Azure (Container Apps)](#deploying-to-azure-container-apps)
 
 ---
 
@@ -18,13 +34,13 @@ A personal nutrition tracking app built with React + Vite, backed by a self-host
 
 ```
             browser
-               │  one port: :3000 locally, :80 behind the load balancer on ECS
+               │  one port: :3000 locally, :80 behind the cloud load balancer
                ▼
    ┌─────────────────────────┐      ┌─────────────────────────┐      ┌──────────────────────────┐
    │ app  (nginx)            │      │ api  (Node, Express)    │      │ pocketbase               │
    │  /        → React app   │ /api │  REST API, JSON contract│      │  database + admin UI     │
    │  /api     → api ────────┼─────▶│  validation, login,     ├─────▶│  SQLite in /pb/pb_data   │
-   │  /_/      → PocketBase  │      │  OpenFoodFacts proxy    │      │  (docker volume / EFS)   │
+   │  /_/      → PocketBase  │      │  OpenFoodFacts proxy    │      │  (volume / file share)   │
    │  /health  → api ready   │      │  /api/health, /api/ready│      │                          │
    └─────────────────────────┘      └─────────────────────────┘      └──────────────────────────┘
         stateless, no secrets            stateless, no secrets          the only stateful container
@@ -32,7 +48,7 @@ A personal nutrition tracking app built with React + Vite, backed by a self-host
 
 - The browser only talks to nginx. nginx serves the built React files, forwards `/api` to the Node API and `/_/` to the PocketBase admin UI, so there is no CORS and no backend URL inside the JavaScript bundle.
 - The Node API is the only thing that talks to PocketBase. Every response it sends follows one JSON contract (below), so the frontend handles success and failure the same way everywhere.
-- All images are built once and configured only through environment variables, so the same image runs in docker compose and on ECS.
+- All images are built once and configured only through environment variables, so the same image runs in docker compose, on ECS, on Cloud Run and on Container Apps.
 - The data collections require a signed-in user. The app shows a login screen; the login is created from env vars on startup and public sign-up is disabled.
 
 ## API contract
@@ -70,7 +86,7 @@ All routes except login and the health checks need `Authorization: Bearer <token
 | API | Node.js 22, Express |
 | Database | PocketBase 0.22 (SQLite) |
 | Web server | nginx (serves the React app, proxies `/api` to the Node API) |
-| Runtime | Docker + Docker Compose locally, AWS ECS (Fargate) + EFS in the cloud |
+| Runtime | Docker + Docker Compose locally; AWS ECS Fargate + EFS, Google Cloud Run, or Azure Container Apps in the cloud (Terraform) |
 
 ---
 
@@ -212,37 +228,186 @@ Locally these come from `.env` (gitignored, and excluded from image builds). Not
 
 ---
 
-## Deploying to AWS (ECR + ECS Fargate)
+## Deploying to the cloud
 
-> The quickest way to deploy is the Terraform in [`infrastructure/`](infrastructure/README.md), which builds everything below (and the same app on Google Cloud Run and Azure Container Apps) from an empty account. The manual steps here show what it does.
+The [`infrastructure/`](infrastructure/README.md) folder has Terraform that deploys the app to an **empty account** on three clouds. It creates the network, identity, image registry, secrets, database storage and the service itself:
 
-### 1. Push the images
+| Cloud | Runs on | Database storage | Folder |
+|---|---|---|---|
+| [AWS](#deploying-to-aws-ecs-fargate) | ECS on Fargate behind an Application Load Balancer | EFS | [`infrastructure/aws`](infrastructure/aws) |
+| [Google Cloud](#deploying-to-google-cloud-cloud-run) | Cloud Run | Cloud Storage bucket (FUSE), or Filestore | [`infrastructure/gcp`](infrastructure/gcp) |
+| [Azure](#deploying-to-azure-container-apps) | Azure Container Apps | Azure Files | [`infrastructure/azure`](infrastructure/azure) |
+
+On every cloud the three containers run together in one unit (an ECS task, a Cloud Run instance, a Container App replica), so they reach each other on `localhost`. That unit is capped at **one copy**, because PocketBase stores its data in SQLite, which allows a single writer.
+
+> **Run `terraform plan` and `terraform apply` by hand, never in CI.** A person should read every plan before it changes a cloud account, and cloud credentials should never be stored in CI. The repository's CI only builds the images: it has no cloud access and pushes nothing, so you push the images yourself (step 4 below).
+
+You need Terraform 1.10 or newer, Docker, and the cloud's CLI logged in to your account. Every cloud follows the same five steps:
+
+1. **Create the state backend, once per account:** `bootstrap/` makes the bucket or storage account where Terraform keeps its state.
+2. **Point the main stack at it:** paste the `backend_config` output into `backend.hcl`.
+3. **Fill in `terraform.tfvars`:** replace every `<...>` placeholder. Every other setting is listed there too, commented out with its default. Passwords can stay empty, because Terraform generates them.
+4. **Create the registry, push the images, then deploy everything:** the service can't start before its images exist.
+5. **Open the app:** `terraform output app_url`. Log in with your admin email and `terraform output -raw pocketbase_admin_password`.
+
+The commands for each cloud are below. [infrastructure/README.md](infrastructure/README.md) explains the choices behind each stack, how the health checks work, the costs, and the known limits.
+
+To bring the bill to zero between demos, set `create = false` in `terraform.tfvars` and apply. That deletes every resource of the stack, the database included. Set it back to `true` and apply to rebuild everything. See [Turning the app off and on](infrastructure/README.md#turning-the-app-off-and-on-create).
+
+To ship a new version, push the images with a new tag, set `image_tag` in `terraform.tfvars`, and run `terraform plan` / `terraform apply` again.
+
+Build the images for the CPU architecture the cloud runs, which is `linux/amd64` by default. On Apple Silicon, run `export DOCKER_DEFAULT_PLATFORM=linux/amd64` before `docker compose build`.
+
+---
+
+## Deploying to AWS (ECS Fargate)
+
+What it creates:
+
+- **Network:** a VPC (`10.0.0.0/16`) over two availability zones, with public and private subnets.
+- **Load balancer:** an Application Load Balancer, with HTTPS when you set `certificate_arn`.
+- **Service:** an ECS cluster and a service running one Fargate task. The task is in a public subnet, and its security group only lets the load balancer in. There is no NAT gateway, which keeps the cost down.
+- **Database storage:** EFS mounted at `/pb/pb_data`.
+- **Images, passwords and logs:** three ECR repositories, the passwords in SSM Parameter Store, and CloudWatch Logs.
+
+It costs roughly 25 to 40 USD a month while it runs.
 
 ```bash
-export REGISTRY=<ACCOUNT_ID>.dkr.ecr.<REGION>.amazonaws.com TAG=v1
-aws ecr create-repository --repository-name nutrition-app
-aws ecr create-repository --repository-name nutrition-api
-aws ecr create-repository --repository-name nutrition-pocketbase
-aws ecr get-login-password | docker login --username AWS --password-stdin $REGISTRY
+aws configure                                   # or aws sso login
+
+# 1. State backend: fill in infrastructure/aws/bootstrap/terraform.tfvars first
+cd infrastructure/aws/bootstrap
+terraform init
+terraform plan -out=tfplan                      # read it
+terraform apply tfplan
+terraform output backend_config                 # 2. paste this into ../backend.hcl
+
+# 3. Fill in infrastructure/aws/terraform.tfvars (account ID, region, admin email)
+
+# 4a. Create the ECR repositories first
+cd ..
+terraform init -backend-config=backend.hcl
+terraform plan -target=module.ecr -out=tfplan   # read it
+terraform apply tfplan
+export REGISTRY=$(terraform output -raw registry_url) TAG=latest
+
+# 4b. Build and push the images (from the repository root)
+cd ../..
+aws ecr get-login-password | docker login --username AWS --password-stdin "$REGISTRY"
 docker compose build && docker compose push
+
+# 4c. Deploy everything else
+cd infrastructure/aws
+terraform plan -out=tfplan                      # read it
+terraform apply tfplan
+
+# 5. Open the app
+terraform output app_url
+terraform output -raw pocketbase_admin_password
 ```
 
-`docker-compose.yml` names the images `${REGISTRY}/nutrition-app:${TAG}` and `${REGISTRY}/nutrition-pocketbase:${TAG}`, so build and push need no extra steps. Build on the same CPU architecture as your task (or add `--platform linux/amd64` / use ARM64 Fargate).
+`infrastructure/ecs/task-definition.json` is a hand-written example of the same task, if you'd rather wire ECS yourself. Terraform builds this task for you.
 
-### 2. Persistent storage: EFS
+---
 
-Fargate container storage is thrown away on every deploy, so the database must live on EFS:
-1. Create an EFS file system in the same VPC, with a mount target in each subnet the task uses.
-2. Allow NFS (TCP 2049) from the task's security group to the EFS security group.
-3. Mount it at `/pb/pb_data` in the `pocketbase` container (see `volumes` / `mountPoints` in `infrastructure/ecs/task-definition.json`).
+## Deploying to Google Cloud (Cloud Run)
 
-### 3. Task definition
+What it creates:
 
-Use `infrastructure/ecs/task-definition.json` as the starting point and fill in the `<...>` values. All containers run in **one task**, so they reach each other on `localhost`: nginx calls the API at `http://localhost:4000` (and the PocketBase admin UI at `http://localhost:8090`), and the API calls PocketBase at `http://localhost:8090`. See [infrastructure/README.md](infrastructure/README.md). Store the passwords in SSM Parameter Store or Secrets Manager (the example uses `secrets`, which needs the execution role to be allowed to read them).
+- **Project:** with `bootstrap/`, either a new project (with billing linked) or an existing one, with the APIs it needs turned on.
+- **Network:** a VPC with one subnet (`10.10.0.0/24`), used through Direct VPC egress.
+- **Identity:** a dedicated service account.
+- **Service:** a Cloud Run service with the three containers in one instance, scaling from 0 to 1.
+- **Images and passwords:** an Artifact Registry repository, and the passwords in Secret Manager.
+- **Database storage:** by default a Cloud Storage bucket mounted with Cloud Storage FUSE. Set `pocketbase_storage = "filestore"` for real NFS, which costs about 200 USD a month.
 
-### 4. Service and load balancer
+It usually stays inside the free tier, because Cloud Run scales to zero and bills CPU only while it handles a request.
 
-- **Desired count: exactly 1.** PocketBase uses SQLite, which supports a single writer: never run two tasks against the same EFS data. Set the deployment to minimum healthy 0% / maximum 100% so the old task stops before the new one starts.
-- Target group: target type `ip`, port 80 (the `app` container), health check path `/health` (or whatever `HEALTHCHECK_PATH` / `HEALTHCHECK_PORT` you set). Give the service a health check grace period of about 60 seconds for the first start.
-- Only the `app` container needs to be reachable from the load balancer. PocketBase's port 8090 stays private to the task.
-- Put HTTPS on the load balancer (ACM certificate): the login sends a password.
+```bash
+gcloud auth login
+gcloud auth application-default login
+
+# 1. State backend (and optionally the project): fill in infrastructure/gcp/bootstrap/terraform.tfvars first
+cd infrastructure/gcp/bootstrap
+terraform init
+terraform plan -out=tfplan                      # read it
+terraform apply tfplan
+terraform output backend_config                 # 2. paste this into ../backend.hcl
+
+# 3. Fill in infrastructure/gcp/terraform.tfvars (project ID, region, admin email)
+
+# 4a. Create the Artifact Registry repository first
+cd ..
+terraform init -backend-config=backend.hcl
+terraform plan -target=module.artifact_registry -out=tfplan   # read it
+terraform apply tfplan
+export REGISTRY=$(terraform output -raw registry_url) TAG=latest
+
+# 4b. Build and push the images (from the repository root)
+cd ../..
+gcloud auth configure-docker "${REGISTRY%%/*}"
+docker compose build && docker compose push
+
+# 4c. Deploy everything else
+cd infrastructure/gcp
+terraform plan -out=tfplan                      # read it
+terraform apply tfplan
+
+# 5. Open the app (a https://...run.app URL)
+terraform output app_url
+terraform output -raw pocketbase_admin_password
+```
+
+With `min_instances = 0` (the default), the first request after a quiet spell waits a few seconds while the containers start.
+
+---
+
+## Deploying to Azure (Container Apps)
+
+What it creates:
+
+- **Resource group and network:** a resource group, and a VNet (`10.20.0.0/16`) with a subnet delegated to Container Apps, protected by an NSG.
+- **Identity:** a user-assigned managed identity that pulls images from the registry.
+- **Images:** a Basic Azure Container Registry.
+- **Database storage:** a Standard Azure Files share mounted at `/pb/pb_data`. Its storage account accepts traffic only from the app's subnet.
+- **Logs:** a Log Analytics workspace.
+- **Service:** a Container Apps environment with one Container App, scaling from 0 to 1, with the passwords stored as Container App secrets.
+
+It costs about 5 USD a month for the registry. The app itself usually stays inside the monthly free grant.
+
+```bash
+az login
+az account set --subscription <YOUR_AZURE_SUBSCRIPTION_ID>
+
+# 1. State backend: fill in infrastructure/azure/bootstrap/terraform.tfvars first
+cd infrastructure/azure/bootstrap
+terraform init
+terraform plan -out=tfplan                      # read it
+terraform apply tfplan
+terraform output backend_config                 # 2. paste this into ../backend.hcl
+
+# 3. Fill in infrastructure/azure/terraform.tfvars (subscription ID, region, admin email)
+
+# 4a. Create the container registry first
+cd ..
+terraform init -backend-config=backend.hcl
+terraform plan -target=module.container_registry -out=tfplan   # read it
+terraform apply tfplan
+export REGISTRY=$(terraform output -raw registry_url) TAG=latest
+
+# 4b. Build and push the images (from the repository root)
+cd ../..
+az acr login --name "${REGISTRY%%.*}"
+docker compose build && docker compose push
+
+# 4c. Deploy everything else
+cd infrastructure/azure
+terraform plan -out=tfplan                      # read it
+terraform apply tfplan
+
+# 5. Open the app (a https://...azurecontainerapps.io URL)
+terraform output app_url
+terraform output -raw pocketbase_admin_password
+```
+
+Like Cloud Run, the app scales to zero when idle, so the first request after a pause waits while PocketBase starts.
