@@ -1,9 +1,3 @@
-// AI integrations — not configured yet. Replace with real implementations when needed.
-
-export const InvokeLLM = async () => {
-  throw new Error('AI search not configured. Please enter nutritional values manually.');
-};
-
 // Search food nutritional values via OpenFoodFacts (free, no API key, multilingual)
 export const SearchFood = async (query) => {
   const url = `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&search_simple=1&action=process&json=1&page_size=15&fields=product_name,nutriments`;
@@ -27,28 +21,4 @@ export const SearchFood = async (query) => {
       fat:     Math.round((p.nutriments.fat_100g           || 0) * 10) / 10,
     }))
     .slice(0, 5);
-};
-
-export const UploadFile = async () => {
-  throw new Error('File upload not configured.');
-};
-
-export const ExtractDataFromUploadedFile = async () => {
-  throw new Error('File extraction not configured.');
-};
-
-export const SendEmail = async () => {
-  throw new Error('Email not configured.');
-};
-
-export const GenerateImage = async () => {
-  throw new Error('Image generation not configured.');
-};
-
-export const Core = {
-  InvokeLLM,
-  SendEmail,
-  UploadFile,
-  GenerateImage,
-  ExtractDataFromUploadedFile,
 };
