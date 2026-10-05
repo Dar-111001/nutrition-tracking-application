@@ -4,55 +4,51 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CalendarDays, Target, TrendingUp, TrendingDown } from "lucide-react";
 import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
+import { toLocalDateString, parseLocalDate, lastNDays } from "@/lib/dates";
+import InlineError from "@/components/InlineError";
+import LogoSpinner from "@/components/LogoSpinner";
 
 export default function MonthlyTracker() {
     const { t } = useTranslation();
     const [dailyData, setDailyData] = useState({});
     const [stats, setStats] = useState({ green: 0, red: 0, total: 0 });
-    const [isLoading, setIsLoading] = useState(true);
+    const [load, setLoad] = useState({ status: "loading", error: null });
+    const last30Days = lastNDays(30);
 
     useEffect(() => {
         loadData();
     }, []);
 
     const loadData = async () => {
-        const last30Days = getLast30Days();
+        setLoad({ status: "loading", error: null });
+        const days = lastNDays(30);
         const [foodsResult, goalsResult] = await Promise.all([
-            Food.listRange(last30Days[0], last30Days[last30Days.length - 1]),
+            Food.listRange(days[0], days[days.length - 1]),
             DailyGoals.get(),
         ]);
-        if (!foodsResult.ok || !goalsResult.ok) {
-            console.error("Error loading data:", foodsResult.error || goalsResult.error);
-        } else {
-            const allFoods = foodsResult.data;
-            const currentGoals = goalsResult.data || { protein_goal: 6, carbs_goal: 6.5, fat_goal: 2 };
-
-            const processedData = {};
-
-            last30Days.forEach(date => {
-                const dayFoods = allFoods.filter(food => food.date === date);
-                const dayTotals = calculateDayTotals(dayFoods);
-                const isOnTarget = checkIfOnTarget(dayTotals, currentGoals);
-                processedData[date] = { totals: dayTotals, isOnTarget, foodCount: dayFoods.length };
-            });
-
-            setDailyData(processedData);
-
-            const greenDays = Object.values(processedData).filter(d => d.isOnTarget).length;
-            const redDays   = Object.values(processedData).filter(d => !d.isOnTarget && d.foodCount > 0).length;
-            setStats({ green: greenDays, red: redDays, total: 30 });
+        const failed = !foodsResult.ok ? foodsResult : !goalsResult.ok ? goalsResult : null;
+        if (failed) {
+            setLoad({ status: "error", error: failed.error });
+            return;
         }
-        setIsLoading(false);
-    };
 
-    const getLast30Days = () => {
-        const dates = [];
-        for (let i = 29; i >= 0; i--) {
-            const date = new Date();
-            date.setDate(date.getDate() - i);
-            dates.push(date.toISOString().split('T')[0]);
-        }
-        return dates;
+        const allFoods = foodsResult.data;
+        const currentGoals = goalsResult.data || { protein_goal: 6, carbs_goal: 6.5, fat_goal: 2 };
+        const processedData = {};
+
+        days.forEach(date => {
+            const dayFoods = allFoods.filter(food => food.date === date);
+            const dayTotals = calculateDayTotals(dayFoods);
+            const isOnTarget = checkIfOnTarget(dayTotals, currentGoals);
+            processedData[date] = { totals: dayTotals, isOnTarget, foodCount: dayFoods.length };
+        });
+
+        setDailyData(processedData);
+
+        const greenDays = Object.values(processedData).filter(d => d.isOnTarget).length;
+        const redDays   = Object.values(processedData).filter(d => !d.isOnTarget && d.foodCount > 0).length;
+        setStats({ green: greenDays, red: redDays, total: 30 });
+        setLoad({ status: "ready", error: null });
     };
 
     const calculateDayTotals = (dayFoods) =>
@@ -63,14 +59,14 @@ export default function MonthlyTracker() {
         }), { protein: 0, carbs: 0, fat: 0 });
 
     const checkIfOnTarget = (totals, goals) =>
+        totals.protein + totals.carbs + totals.fat > 0 &&
         totals.protein >= goals.protein_goal &&
         totals.carbs   >= goals.carbs_goal   &&
         totals.fat     >= goals.fat_goal;
 
     const formatDate = (dateString) => {
-        const today = new Date().toISOString().split('T')[0];
-        if (dateString === today) return t("monthly_today");
-        const date   = new Date(dateString);
+        if (dateString === toLocalDateString()) return t("monthly_today");
+        const date   = parseLocalDate(dateString);
         const locale = t("monthly_locale");
         return date.toLocaleDateString(locale, { day: "numeric", month: "short" });
     };
@@ -83,15 +79,19 @@ export default function MonthlyTracker() {
             : "bg-red-100 border-red-300 text-red-700";
     };
 
-    if (isLoading) {
+    if (load.status !== "ready") {
         return (
             <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 p-6">
                 <div className="flex justify-center items-center h-64">
-                    <div className="text-xl text-gray-500">{t("monthly_loading")}</div>
+                    {load.status === "loading"
+                        ? <LogoSpinner size="lg" label={t("monthly_loading")} />
+                        : <InlineError error={load.error} onRetry={loadData} className="text-base" />}
                 </div>
             </div>
         );
     }
+
+    const hasAnyData = Object.values(dailyData).some(d => d.foodCount > 0);
 
     const dayNames = t("monthly_day_names", { returnObjects: true });
 
@@ -110,6 +110,10 @@ export default function MonthlyTracker() {
                         </span>
                     </h1>
                 </motion.div>
+
+                {!hasAnyData && (
+                    <p className="text-center text-gray-600 mb-6">{t("monthly_empty")}</p>
+                )}
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                     <Card className="bg-green-50 border-green-200">
@@ -152,7 +156,7 @@ export default function MonthlyTracker() {
                         </div>
 
                         <div className="grid grid-cols-7 gap-3" dir="ltr">
-                            {getLast30Days().map((date, index) => {
+                            {last30Days.map((date, index) => {
                                 const dayData = dailyData[date];
                                 return (
                                     <motion.div

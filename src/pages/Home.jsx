@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Food, DailyGoals } from "@/api/entities";
 import { Button } from "@/components/ui/button";
 import { Settings, Info } from "lucide-react";
@@ -13,67 +13,122 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { toLocalDateString } from "@/lib/dates";
+import InlineError from "@/components/InlineError";
+import LogoSpinner from "@/components/LogoSpinner";
+import ConfirmDialog from "@/components/ConfirmDialog";
 
 import FoodForm from "../components/nutrition/FoodForm";
 import DailyProgress from "../components/nutrition/DailyProgress";
 import FoodList from "../components/nutrition/FoodList";
 
+const DEFAULT_GOALS = { protein_goal: 6, carbs_goal: 6.5, fat_goal: 2 };
+const GOAL_FIELDS = [
+    { field: "protein_goal", label: "home_protein_portions" },
+    { field: "carbs_goal",   label: "home_carbs_portions" },
+    { field: "fat_goal",     label: "home_fat_portions" },
+];
+
+// Goals are edited as strings so an empty field stays empty instead of becoming NaN.
+const goalsToForm = (goals) =>
+    Object.fromEntries(GOAL_FIELDS.map(({ field }) => [field, String(goals[field] ?? "")]));
+
 export default function Home() {
     const { t } = useTranslation();
     const [todayFoods, setTodayFoods] = useState([]);
     const [goals, setGoals] = useState(null);
-    const [isLoading, setIsLoading] = useState(false);
+    const [load, setLoad] = useState({ status: "loading", error: null });
+    const [isAdding, setIsAdding] = useState(false);
+
     const [showGoalsDialog, setShowGoalsDialog] = useState(false);
-    const [tempGoals, setTempGoals] = useState({ protein_goal: 6, carbs_goal: 6.5, fat_goal: 2 });
+    const [goalsForm, setGoalsForm] = useState(goalsToForm(DEFAULT_GOALS));
+    const [goalsError, setGoalsError] = useState(null);
+    const [isSavingGoals, setIsSavingGoals] = useState(false);
+
+    const [showClearDialog, setShowClearDialog] = useState(false);
+
+    const loadData = useCallback(async () => {
+        setLoad((prev) => ({ status: prev.status === "ready" ? "ready" : "loading", error: null }));
+        const today = toLocalDateString();
+        const [foodsResult, goalsResult] = await Promise.all([
+            Food.listByDate(today),
+            DailyGoals.get(),
+        ]);
+
+        if (foodsResult.ok) setTodayFoods(foodsResult.data);
+        if (goalsResult.ok && goalsResult.data) setGoals(goalsResult.data);
+
+        const failed = !foodsResult.ok ? foodsResult : !goalsResult.ok ? goalsResult : null;
+        setLoad(failed ? { status: "error", error: failed.error } : { status: "ready", error: null });
+    }, []);
 
     useEffect(() => {
         loadData();
-    }, []);
+    }, [loadData]);
 
-    const loadData = async () => {
-        const today = new Date().toISOString().split('T')[0];
-        const [foodsResult, goalsResult] = await Promise.all([Food.listByDate(today), DailyGoals.get()]);
-        if (foodsResult.ok) setTodayFoods(foodsResult.data);
-        else console.error("Error loading foods:", foodsResult.error);
-
-        if (goalsResult.ok && goalsResult.data) {
-            setGoals(goalsResult.data);
-            setTempGoals(goalsResult.data);
-        } else if (!goalsResult.ok) {
-            console.error("Error loading goals:", goalsResult.error);
-        }
-    };
-
+    // Returns the envelope so the form that called it can show the error next to its own button.
     const handleAddFood = async (foodData) => {
-        setIsLoading(true);
-        const result = await Food.create(foodData);
-        if (result.ok) await loadData();
-        else console.error("Error adding food:", result.error);
-        setIsLoading(false);
+        setIsAdding(true);
+        const result = await Food.create({ ...foodData, date: toLocalDateString() });
+        setIsAdding(false);
+        if (result.ok) setTodayFoods((foods) => [result.data, ...foods]);
+        return result;
     };
 
     const handleDeleteFood = async (foodId) => {
         const result = await Food.delete(foodId);
-        if (!result.ok) console.error("Error deleting food:", result.error);
-        await loadData();
+        if (result.ok) setTodayFoods((foods) => foods.filter((f) => f.id !== foodId));
+        return result;
     };
 
+    // Deletes every meal of the day. If some fail, the API lists them in
+    // details.failed: those stay on screen and the dialog says how many.
     const handleClearAll = async () => {
-        if (confirm(t("home_confirm_clear"))) {
-            const today = new Date().toISOString().split('T')[0];
-            const result = await Food.clearDay(today);
-            if (!result.ok) console.error("Error clearing foods:", result.error);
-            await loadData();
+        const total = todayFoods.length;
+        const result = await Food.clearDay(toLocalDateString());
+        if (result.ok) {
+            setTodayFoods([]);
+            return result;
         }
+        const failedIds = result.error.details?.failed;
+        if (!Array.isArray(failedIds)) return result;
+        setTodayFoods((foods) => foods.filter((f) => failedIds.includes(f.id)));
+        return {
+            ok: false,
+            error: { ...result.error, code: "partial", message: t("home_clear_partial", { failed: failedIds.length, total }) },
+        };
+    };
+
+    const openGoalsDialog = (open) => {
+        if (open) {
+            setGoalsForm(goalsToForm(goals || DEFAULT_GOALS));
+            setGoalsError(null);
+        }
+        setShowGoalsDialog(open);
     };
 
     const handleSaveGoals = async () => {
-        const result = await DailyGoals.save(tempGoals);
+        const values = {};
+        for (const { field } of GOAL_FIELDS) {
+            const raw = goalsForm[field].trim();
+            const value = Number(raw);
+            if (raw === "" || !Number.isFinite(value) || value < 0) {
+                setGoalsError(t("goals_invalid"));
+                return;
+            }
+            values[field] = value;
+        }
+
+        setIsSavingGoals(true);
+        setGoalsError(null);
+        const result = await DailyGoals.save(values);
+        setIsSavingGoals(false);
+
         if (!result.ok) {
-            console.error("Error saving goals:", result.error);
+            setGoalsError(result.error);
             return;
         }
-        await loadData();
+        setGoals(result.data);
         setShowGoalsDialog(false);
     };
 
@@ -93,7 +148,7 @@ export default function Home() {
                     </h1>
 
                     <div className="flex justify-center gap-4 mt-8">
-                        <Dialog open={showGoalsDialog} onOpenChange={setShowGoalsDialog}>
+                        <Dialog open={showGoalsDialog} onOpenChange={openGoalsDialog}>
                             <DialogTrigger asChild>
                                 <Button variant="outline" className="rounded-2xl border-2 hover:bg-gray-50">
                                     <Settings className="w-4 h-4 mr-2" />
@@ -104,44 +159,33 @@ export default function Home() {
                                 <DialogHeader>
                                     <DialogTitle>{t("home_goals_dialog_title")}</DialogTitle>
                                 </DialogHeader>
-                                <div className="space-y-4">
+                                <form
+                                    className="space-y-4"
+                                    onSubmit={(e) => { e.preventDefault(); handleSaveGoals(); }}
+                                >
+                                    {GOAL_FIELDS.map(({ field, label }) => (
+                                        <div key={field}>
+                                            <Label htmlFor={field}>{t(label)}</Label>
+                                            <Input
+                                                id={field}
+                                                type="number"
+                                                inputMode="decimal"
+                                                min="0"
+                                                step="0.1"
+                                                value={goalsForm[field]}
+                                                onChange={(e) => setGoalsForm({ ...goalsForm, [field]: e.target.value })}
+                                                className="text-center"
+                                            />
+                                        </div>
+                                    ))}
                                     <div>
-                                        <Label htmlFor="protein_goal">{t("home_protein_portions")}</Label>
-                                        <Input
-                                            id="protein_goal"
-                                            type="number"
-                                            step="0.1"
-                                            value={tempGoals.protein_goal}
-                                            onChange={(e) => setTempGoals({ ...tempGoals, protein_goal: parseFloat(e.target.value) })}
-                                            className="text-center"
-                                        />
+                                        <Button type="submit" className="w-full" disabled={isSavingGoals}>
+                                            {isSavingGoals && <LogoSpinner size="sm" inline className="me-2" />}
+                                            {t("home_save_goals")}
+                                        </Button>
+                                        <InlineError error={goalsError} />
                                     </div>
-                                    <div>
-                                        <Label htmlFor="carbs_goal">{t("home_carbs_portions")}</Label>
-                                        <Input
-                                            id="carbs_goal"
-                                            type="number"
-                                            step="0.1"
-                                            value={tempGoals.carbs_goal}
-                                            onChange={(e) => setTempGoals({ ...tempGoals, carbs_goal: parseFloat(e.target.value) })}
-                                            className="text-center"
-                                        />
-                                    </div>
-                                    <div>
-                                        <Label htmlFor="fat_goal">{t("home_fat_portions")}</Label>
-                                        <Input
-                                            id="fat_goal"
-                                            type="number"
-                                            step="0.1"
-                                            value={tempGoals.fat_goal}
-                                            onChange={(e) => setTempGoals({ ...tempGoals, fat_goal: parseFloat(e.target.value) })}
-                                            className="text-center"
-                                        />
-                                    </div>
-                                    <Button onClick={handleSaveGoals} className="w-full">
-                                        {t("home_save_goals")}
-                                    </Button>
-                                </div>
+                                </form>
                             </DialogContent>
                         </Dialog>
 
@@ -184,19 +228,36 @@ export default function Home() {
                     </div>
                 </motion.div>
 
-                <DailyProgress todayFoods={todayFoods} goals={goals} />
+                {load.status === "loading" ? (
+                    <LogoSpinner size="lg" className="mb-16" />
+                ) : (
+                    <>
+                        <InlineError error={load.error} onRetry={loadData} className="justify-center mb-6 text-base" />
 
-                <div className="mb-16">
-                    <FoodList
-                        foods={todayFoods}
-                        onDeleteFood={handleDeleteFood}
-                        onClearAll={handleClearAll}
-                        onAddFood={handleAddFood}
-                        isLoading={isLoading}
-                    />
-                </div>
+                        <DailyProgress todayFoods={todayFoods} goals={goals} />
 
-                <FoodForm onSubmit={handleAddFood} isLoading={isLoading} />
+                        <div className="mb-16">
+                            <FoodList
+                                foods={todayFoods}
+                                onDeleteFood={handleDeleteFood}
+                                onClearAll={() => setShowClearDialog(true)}
+                                onAddFood={handleAddFood}
+                                isLoading={isAdding}
+                            />
+                        </div>
+                    </>
+                )}
+
+                <FoodForm onSubmit={handleAddFood} isLoading={isAdding} />
+
+                <ConfirmDialog
+                    open={showClearDialog}
+                    onOpenChange={setShowClearDialog}
+                    title={t("home_clear_title")}
+                    description={t("home_confirm_clear")}
+                    confirmLabel={t("home_clear_btn")}
+                    onConfirm={handleClearAll}
+                />
             </div>
         </div>
     );

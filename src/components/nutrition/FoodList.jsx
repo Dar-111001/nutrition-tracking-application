@@ -6,10 +6,23 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
 import { useTranslation } from "react-i18next";
 import QuickAddFoodDialog from "./QuickAddFoodDialog";
+import InlineError from "@/components/InlineError";
+import LogoSpinner from "@/components/LogoSpinner";
 
 export default function FoodList({ foods, onDeleteFood, onClearAll, onAddFood, isLoading }) {
     const { t } = useTranslation();
     const [showQuickAddDialog, setShowQuickAddDialog] = useState(false);
+    const [deletingId, setDeletingId] = useState(null);
+    const [deleteError, setDeleteError] = useState({ id: null, error: null });
+
+    // onDeleteFood returns the API envelope; a failure is shown under that meal only.
+    const handleDelete = async (foodId) => {
+        setDeletingId(foodId);
+        setDeleteError({ id: null, error: null });
+        const result = await onDeleteFood(foodId);
+        setDeletingId(null);
+        if (!result.ok) setDeleteError({ id: foodId, error: result.error });
+    };
 
     if (!foods || foods.length === 0) {
         return (
@@ -103,12 +116,19 @@ export default function FoodList({ foods, onDeleteFood, onClearAll, onAddFood, i
                                             <Button
                                                 variant="ghost"
                                                 size="icon"
-                                                onClick={() => onDeleteFood(food.id)}
+                                                onClick={() => handleDelete(food.id)}
+                                                disabled={deletingId === food.id}
+                                                aria-label={t("library_delete_btn")}
                                                 className="text-red-500 hover:text-red-700 hover:bg-red-50"
                                             >
-                                                <Trash2 className="w-4 h-4" />
+                                                {deletingId === food.id
+                                                    ? <LogoSpinner size="sm" inline />
+                                                    : <Trash2 className="w-4 h-4" />}
                                             </Button>
                                         </div>
+                                        {deleteError.id === food.id && (
+                                            <InlineError error={deleteError.error} className="justify-end -mt-2 mb-3" />
+                                        )}
                                         <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
                                             <div className="text-center p-3 bg-emerald-50 rounded-xl">
                                                 <div className="text-sm text-emerald-600 mb-1">{t("foodlist_protein")}</div>
