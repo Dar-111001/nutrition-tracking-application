@@ -1,5 +1,7 @@
 # Local:     cp .env.example .env && docker compose up --build   ->  http://localhost:3000
 # Registry:  REGISTRY=<account>.dkr.ecr.<region>.amazonaws.com TAG=v1 docker compose build && docker compose push
+#
+# browser -> app (nginx: React build, /api proxy) -> api (Node) -> pocketbase (database)
 services:
   app:
     image: ${REGISTRY:-nutrition}/nutrition-app:${TAG:-latest}
@@ -8,10 +10,27 @@ services:
     ports:
       - "3000:80"
     environment:
+      API_URL: http://api:4000
       POCKETBASE_URL: http://pocketbase:8090
       HEALTHCHECK_PATH: ${HEALTHCHECK_PATH:-/health}
       HEALTHCHECK_PORT: ${HEALTHCHECK_PORT:-}
       HEALTHCHECK_URL: ${HEALTHCHECK_URL:-}
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+  api:
+    image: ${REGISTRY:-nutrition}/nutrition-api:${TAG:-latest}
+    build:
+      context: ./api
+    # Exposed locally so `npm run dev` (Vite) can reach it; on ECS only nginx is public
+    ports:
+      - "4000:4000"
+    environment:
+      PORT: 4000
+      POCKETBASE_URL: http://pocketbase:8090
+      HEALTHCHECK_PATH: ${API_HEALTHCHECK_PATH:-/api/health}
     depends_on:
       pocketbase:
         condition: service_healthy
@@ -22,7 +41,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.pocketbase
-    # Exposed locally for `npm run dev` and direct admin access; on ECS only nginx is public
+    # Exposed locally so the API can run outside Docker (`cd api && npm run dev`)
     ports:
       - "8090:8090"
     env_file:

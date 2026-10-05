@@ -32,12 +32,9 @@ export default function FoodLibrary() {
 
     const loadFoodItems = async () => {
         setIsLoading(true);
-        try {
-            const items = await FoodItem.list();
-            setFoodItems(items);
-        } catch (error) {
-            console.error("Error loading food items:", error);
-        }
+        const result = await FoodItem.list();
+        if (result.ok) setFoodItems(result.data);
+        else console.error("Error loading food items:", result.error);
         setIsLoading(false);
     };
 
@@ -55,7 +52,8 @@ export default function FoodLibrary() {
 
     const handleDelete = async (itemId) => {
         if (confirm(t("library_confirm_delete"))) {
-            await FoodItem.delete(itemId);
+            const result = await FoodItem.delete(itemId);
+            if (!result.ok) console.error("Error deleting food item:", result.error);
             await loadFoodItems();
         }
     };
@@ -71,18 +69,15 @@ export default function FoodLibrary() {
             carbs_per_100g:   parseFloat(currentItem.carbs_per_100g)   || 0,
             fat_per_100g:     parseFloat(currentItem.fat_per_100g)      || 0,
         };
-        try {
-            if (isEditing) {
-                await FoodItem.update(currentItem.id, dataToSave);
-            } else {
-                await FoodItem.create(dataToSave);
-            }
-            setShowDialog(false);
-            await loadFoodItems();
-        } catch (error) {
-            console.error("Error saving food item:", error);
-            alert(t("library_alert_save_error"));
+        const result = isEditing
+            ? await FoodItem.update(currentItem.id, dataToSave)
+            : await FoodItem.create(dataToSave);
+        if (!result.ok) {
+            alert(result.error.message || t("library_alert_save_error"));
+            return;
         }
+        setShowDialog(false);
+        await loadFoodItems();
     };
 
     const handleFileUpload = async (event) => {
@@ -118,12 +113,11 @@ export default function FoodLibrary() {
                 });
             }
 
-            for (const item of items) {
-                await FoodItem.create(item);
-            }
+            const result = await FoodItem.importMany(items);
+            if (!result.ok) throw new Error(result.error.message);
             await loadFoodItems();
             setShowUploadDialog(false);
-            alert(t("library_alert_upload_success", { count: items.length }));
+            alert(t("library_alert_upload_success", { count: result.data.created }));
         } catch (error) {
             console.error("Error uploading file:", error);
             alert(t("library_alert_upload_error"));

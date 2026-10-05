@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Plus, Calculator, Search, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { SearchFood } from "@/api/integrations";
+import { searchFood } from "@/api/entities";
 import { useTranslation } from "react-i18next";
 
 export default function FoodForm({ onSubmit, isLoading }) {
@@ -27,15 +27,13 @@ export default function FoodForm({ onSubmit, isLoading }) {
         }
         setIsSearching(true);
         setSearchResults([]);
-        try {
-            const results = await SearchFood(formData.name);
-            if (results.length === 0) {
-                alert(t("form_alert_not_found"));
-            } else {
-                setSearchResults(results);
-            }
-        } catch {
+        const result = await searchFood(formData.name);
+        if (!result.ok) {
             alert(t("form_alert_error"));
+        } else if (result.data.length === 0) {
+            alert(t("form_alert_not_found"));
+        } else {
+            setSearchResults(result.data);
         }
         setIsSearching(false);
     };
@@ -43,9 +41,9 @@ export default function FoodForm({ onSubmit, isLoading }) {
     const selectResult = (result) => {
         setFormData({
             ...formData,
-            protein_grams: result.protein.toString(),
-            carbs_grams:   result.carbs.toString(),
-            fat_grams:     result.fat.toString(),
+            protein_grams: result.protein_per_100g.toString(),
+            carbs_grams:   result.carbs_per_100g.toString(),
+            fat_grams:     result.fat_per_100g.toString(),
         });
         setSearchResults([]);
     };
@@ -141,7 +139,7 @@ export default function FoodForm({ onSubmit, isLoading }) {
                                             >
                                                 <span className="font-medium text-gray-800 truncate">{result.name}</span>
                                                 <span className="text-xs text-gray-500 whitespace-nowrap shrink-0">
-                                                    P {result.protein}g · C {result.carbs}g · F {result.fat}g
+                                                    P {result.protein_per_100g}g · C {result.carbs_per_100g}g · F {result.fat_per_100g}g
                                                 </span>
                                             </button>
                                         ))}

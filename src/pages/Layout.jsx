@@ -5,7 +5,7 @@ import { Home as HomeIcon, CalendarDays, Library, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "react-i18next";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
-import { pb } from "@/api/pocketbaseClient";
+import { logout } from "@/api/auth";
 
 export default function Layout({ children, currentPageName }) {
     const { t } = useTranslation();
@@ -57,7 +57,7 @@ export default function Layout({ children, currentPageName }) {
                             variant="ghost"
                             size="icon"
                             className="rounded-xl"
-                            onClick={() => pb.authStore.clear()}
+                            onClick={logout}
                             title={t("login_logout")}
                             aria-label={t("login_logout")}
                         >

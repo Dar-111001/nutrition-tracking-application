@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { pb } from "@/api/pocketbaseClient";
+import * as auth from "@/api/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,16 +9,13 @@ import LanguageSwitcher from "@/components/LanguageSwitcher";
 // The data collections only allow signed-in users, so the app is shown
 // only with a valid session; otherwise the login form.
 export default function AuthGate({ children }) {
-    const [isValid, setIsValid] = useState(pb.authStore.isValid);
+    const [isValid, setIsValid] = useState(auth.isLoggedIn());
 
     useEffect(() => {
-        const unsubscribe = pb.authStore.onChange(() => setIsValid(pb.authStore.isValid));
-        // A stored token may have been revoked (password change, wiped DB): verify it once
-        if (pb.authStore.isValid) {
-            pb.collection("users").authRefresh().catch((err) => {
-                if (err?.status === 401 || err?.status === 403 || err?.status === 404) pb.authStore.clear();
-            });
-        }
+        const unsubscribe = auth.onChange(() => setIsValid(auth.isLoggedIn()));
+        // A stored token may have been revoked (password change, wiped DB): verify it once.
+        // A rejected token signs the user out; a network failure keeps the session.
+        auth.refresh();
         return unsubscribe;
     }, []);
 
@@ -36,13 +33,11 @@ function LoginForm() {
         e.preventDefault();
         setLoading(true);
         setError("");
-        try {
-            await pb.collection("users").authWithPassword(email.trim(), password);
-        } catch (err) {
-            setError(err?.status === 400 ? t("login_error_credentials") : t("login_error_server"));
-        } finally {
-            setLoading(false);
+        const result = await auth.login(email.trim(), password);
+        if (!result.ok) {
+            setError(result.error.code === "unauthorized" ? t("login_error_credentials") : t("login_error_server"));
         }
+        setLoading(false);
     };
 
     return (

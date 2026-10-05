@@ -28,6 +28,7 @@ COPY nginx/healthcheck.sh                     /usr/local/bin/healthcheck
 
 # Defaults suit docker compose; override any of them at runtime (e.g. in the ECS task definition)
 ENV PORT=80 \
+    API_URL=http://api:4000 \
     POCKETBASE_URL=http://pocketbase:8090 \
     HEALTHCHECK_PATH=/health
 

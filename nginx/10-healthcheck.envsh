@@ -23,4 +23,4 @@ else
   rm -f /etc/nginx/templates/healthcheck-server.conf.template /etc/nginx/conf.d/healthcheck-server.conf
 fi
 
-echo "nginx: app on :${PORT}, health check on :${HEALTHCHECK_PORT}${HEALTHCHECK_PATH}, PocketBase at ${POCKETBASE_URL}"
+echo "nginx: app on :${PORT}, health check on :${HEALTHCHECK_PORT}${HEALTHCHECK_PATH}, API at ${API_URL}"
