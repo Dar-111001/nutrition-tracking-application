@@ -1,0 +1,80 @@
+# Continuous integration: proves every change still builds.
+# No cloud credentials: images are built but never pushed.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A newer push to the same branch cancels the older, still-running build
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  frontend:
+    name: Frontend build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      # npm ci installs exactly what package-lock.json pins; fall back until the lockfile lands
+      - run: if [ -f package-lock.json ]; then npm ci; else npm install --no-audit --no-fund; fi
+      - run: npm run build
+      # Reported but not blocking until the existing lint errors are cleaned up
+      - run: npm run lint
+        continue-on-error: true
+
+  config:
+    name: Config checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Task definition is valid JSON
+        run: jq empty infrastructure/ecs/task-definition.json
+      - name: docker-compose.yml is valid
+        run: |
+          touch .env   # compose expects it; real values are never needed to validate
+          docker compose config --quiet
+
+  images:
+    name: Image (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: app
+            context: .
+            dockerfile: Dockerfile
+          - name: pocketbase
+            context: .
+            dockerfile: Dockerfile.pocketbase
+          - name: api
+            context: api
+            dockerfile: api/Dockerfile
+    steps:
+      - uses: actions/checkout@v4
+      # The Node API is being added in a separate change; skip its image until it exists
+      - name: Check Dockerfile exists
+        id: check
+        run: |
+          if [ -f "${{ matrix.dockerfile }}" ]; then echo "present=true" >> "$GITHUB_OUTPUT"
+          else echo "::notice::${{ matrix.dockerfile }} not found, skipping"; fi
+      - uses: docker/setup-buildx-action@v3
+        if: steps.check.outputs.present == 'true'
+      - uses: docker/build-push-action@v6
+        if: steps.check.outputs.present == 'true'
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          push: false
+          tags: nutrition-${{ matrix.name }}:ci
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}

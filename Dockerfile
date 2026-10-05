@@ -6,7 +6,8 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 
 COPY package.json package-lock.json* ./
-RUN npm install
+# npm ci installs exactly what package-lock.json pins; fall back until the lockfile lands
+RUN if [ -f package-lock.json ]; then npm ci; else npm install; fi
 
 COPY . .
 # No backend URL is baked in: the app calls /api on its own origin and nginx proxies it.
