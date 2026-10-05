@@ -25,7 +25,7 @@ export default function QuickAddFoodDialog({ isOpen, onOpenChange, onSubmit, isL
 
     useEffect(() => {
         if (isOpen) {
-            FoodItem.list().then(setFoodItems);
+            FoodItem.list().then((result) => setFoodItems(result.ok ? result.data : []));
         }
     }, [isOpen]);
 

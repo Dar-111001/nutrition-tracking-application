@@ -7,9 +7,9 @@ export default defineConfig({
   plugins: [react()],
   server: {
     allowedHosts: true,
-    // Same-origin API in dev too: forward PocketBase routes to the local container
+    // Same origin in dev too: /api goes to the Node API, /_ to the PocketBase admin UI
     proxy: {
-      '/api': process.env.POCKETBASE_URL || 'http://localhost:8090',
+      '/api': process.env.API_URL || 'http://localhost:4000',
       '/_': process.env.POCKETBASE_URL || 'http://localhost:8090',
     },
   },

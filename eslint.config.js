@@ -5,7 +5,7 @@ import reactHooks from 'eslint-plugin-react-hooks'
 import reactRefresh from 'eslint-plugin-react-refresh'
 
 export default [
-  { ignores: ['dist'] },
+  { ignores: ['dist', 'api/node_modules'] },
   {
     files: ['**/*.{js,jsx}'],
     languageOptions: {
@@ -34,5 +34,10 @@ export default [
         { allowConstantExport: true },
       ],
     },
+  },
+  // The Node API runs on the server, not in the browser
+  {
+    files: ['api/**/*.js'],
+    languageOptions: { globals: globals.node },
   },
 ]

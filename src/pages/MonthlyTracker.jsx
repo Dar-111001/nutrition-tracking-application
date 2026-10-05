@@ -16,14 +16,17 @@ export default function MonthlyTracker() {
     }, []);
 
     const loadData = async () => {
-        try {
-            const allFoods = await Food.list("-created");
-            const goalsData = await DailyGoals.list();
-            const currentGoals = goalsData && goalsData.length > 0
-                ? goalsData[0]
-                : { protein_goal: 6, carbs_goal: 6.5, fat_goal: 2 };
+        const last30Days = getLast30Days();
+        const [foodsResult, goalsResult] = await Promise.all([
+            Food.listRange(last30Days[0], last30Days[last30Days.length - 1]),
+            DailyGoals.get(),
+        ]);
+        if (!foodsResult.ok || !goalsResult.ok) {
+            console.error("Error loading data:", foodsResult.error || goalsResult.error);
+        } else {
+            const allFoods = foodsResult.data;
+            const currentGoals = goalsResult.data || { protein_goal: 6, carbs_goal: 6.5, fat_goal: 2 };
 
-            const last30Days = getLast30Days();
             const processedData = {};
 
             last30Days.forEach(date => {
@@ -38,8 +41,6 @@ export default function MonthlyTracker() {
             const greenDays = Object.values(processedData).filter(d => d.isOnTarget).length;
             const redDays   = Object.values(processedData).filter(d => !d.isOnTarget && d.foodCount > 0).length;
             setStats({ green: greenDays, red: redDays, total: 30 });
-        } catch (error) {
-            console.error("Error loading data:", error);
         }
         setIsLoading(false);
     };

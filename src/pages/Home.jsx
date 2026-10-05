@@ -31,67 +31,50 @@ export default function Home() {
     }, []);
 
     const loadData = async () => {
-        try {
-            const allFoods = await Food.list("-created");
-            const today = new Date().toISOString().split('T')[0];
-            setTodayFoods(allFoods.filter(food => food.date === today));
+        const today = new Date().toISOString().split('T')[0];
+        const [foodsResult, goalsResult] = await Promise.all([Food.listByDate(today), DailyGoals.get()]);
+        if (foodsResult.ok) setTodayFoods(foodsResult.data);
+        else console.error("Error loading foods:", foodsResult.error);
 
-            const goalsData = await DailyGoals.list();
-            if (goalsData && goalsData.length > 0) {
-                setGoals(goalsData[0]);
-                setTempGoals(goalsData[0]);
-            }
-        } catch (error) {
-            console.error("Error loading data:", error);
+        if (goalsResult.ok && goalsResult.data) {
+            setGoals(goalsResult.data);
+            setTempGoals(goalsResult.data);
+        } else if (!goalsResult.ok) {
+            console.error("Error loading goals:", goalsResult.error);
         }
     };
 
     const handleAddFood = async (foodData) => {
         setIsLoading(true);
-        try {
-            await Food.create(foodData);
-            await loadData();
-        } catch (error) {
-            console.error("Error adding food:", error);
-        } finally {
-            setIsLoading(false);
-        }
+        const result = await Food.create(foodData);
+        if (result.ok) await loadData();
+        else console.error("Error adding food:", result.error);
+        setIsLoading(false);
     };
 
     const handleDeleteFood = async (foodId) => {
-        try {
-            await Food.delete(foodId);
-            await loadData();
-        } catch (error) {
-            console.error("Error deleting food:", error);
-        }
+        const result = await Food.delete(foodId);
+        if (!result.ok) console.error("Error deleting food:", result.error);
+        await loadData();
     };
 
     const handleClearAll = async () => {
         if (confirm(t("home_confirm_clear"))) {
-            try {
-                for (const food of todayFoods) {
-                    await Food.delete(food.id);
-                }
-                await loadData();
-            } catch (error) {
-                console.error("Error clearing foods:", error);
-            }
+            const today = new Date().toISOString().split('T')[0];
+            const result = await Food.clearDay(today);
+            if (!result.ok) console.error("Error clearing foods:", result.error);
+            await loadData();
         }
     };
 
     const handleSaveGoals = async () => {
-        try {
-            if (goals) {
-                await DailyGoals.update(goals.id, tempGoals);
-            } else {
-                await DailyGoals.create(tempGoals);
-            }
-            await loadData();
-            setShowGoalsDialog(false);
-        } catch (error) {
-            console.error("Error saving goals:", error);
+        const result = await DailyGoals.save(tempGoals);
+        if (!result.ok) {
+            console.error("Error saving goals:", result.error);
+            return;
         }
+        await loadData();
+        setShowGoalsDialog(false);
     };
 
     return (

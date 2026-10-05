@@ -6,7 +6,8 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 
 COPY package.json package-lock.json* ./
-RUN npm install
+# npm ci installs exactly what package-lock.json pins; fall back until the lockfile lands
+RUN if [ -f package-lock.json ]; then npm ci; else npm install; fi
 
 COPY . .
 # No backend URL is baked in: the app calls /api on its own origin and nginx proxies it.
@@ -27,6 +28,7 @@ COPY nginx/healthcheck.sh                     /usr/local/bin/healthcheck
 
 # Defaults suit docker compose; override any of them at runtime (e.g. in the ECS task definition)
 ENV PORT=80 \
+    API_URL=http://api:4000 \
     POCKETBASE_URL=http://pocketbase:8090 \
     HEALTHCHECK_PATH=/health
 
