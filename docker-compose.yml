@@ -1,9 +1,18 @@
 # Local:     cp .env.example .env && docker compose up --build   ->  http://localhost:3000
 # Registry:  REGISTRY=<account>.dkr.ecr.<region>.amazonaws.com TAG=v1 docker compose build && docker compose push
 #
+# Images are built for linux/amd64 by default, the CPU every cloud stack in
+# infrastructure/ runs on, so an image built on an Apple Silicon Mac still
+# starts on Cloud Run, ECS and Container Apps. On a Mac, Docker Desktop runs
+# these images through emulation, so local `docker compose up` works too
+# (a little slower). For native speed locally, or for ARM64 on Fargate, set
+# DOCKER_PLATFORM=linux/arm64 in .env, and never push an arm64 image to
+# Cloud Run or Container Apps: they only run amd64.
+#
 # browser -> app (nginx: React build, /api proxy) -> api (Node) -> pocketbase (database)
 services:
   app:
+    platform: ${DOCKER_PLATFORM:-linux/amd64}
     image: ${REGISTRY:-nutrition}/nutrition-app:${TAG:-latest}
     build:
       context: .
@@ -21,6 +30,7 @@ services:
     restart: unless-stopped
 
   api:
+    platform: ${DOCKER_PLATFORM:-linux/amd64}
     image: ${REGISTRY:-nutrition}/nutrition-api:${TAG:-latest}
     build:
       context: ./api
@@ -37,6 +47,7 @@ services:
     restart: unless-stopped
 
   pocketbase:
+    platform: ${DOCKER_PLATFORM:-linux/amd64}
     image: ${REGISTRY:-nutrition}/nutrition-pocketbase:${TAG:-latest}
     build:
       context: .
