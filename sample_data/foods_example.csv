@@ -1,21 +1,13 @@
-name,protein_per_100g,carbs_per_100g,fat_per_100g
-חזה עוף מבושל,31,0,3.6
-ביצה שלמה,13,1.1,11
-גבינה קוטג' 5%,12,3.5,5
-טונה בשמן (מסונן),26,0,8
-סלמון אפוי,25,0,13
-בשר בקר טחון 5%,26,0,5
-שקדים,21,22,49
-אבוקדו,2,9,15
-ביצת לבן,11,1.3,0.2
-גבינה צהובה 28%,25,0.5,28
-אורז לבן מבושל,2.7,28,0.3
-פסטה מבושלת,5,25,0.9
-לחם מחיטה מלאה,9,41,3.5
-בטטה מבושלת,1.6,20,0.1
-שיבולת שועל,13,67,7
-חומוס מבושל,9,27,2.6
-עדשים מבושלות,9,20,0.4
-שמן זית,0,0,100
-שמן קוקוס,0,0,100
-חמאת בוטנים,25,20,50
+name_en,name_es,name_he,category,protein_per_100g,carbs_per_100g,fat_per_100g
+Cooked chicken breast,Pechuga de pollo cocida,חזה עוף מבושל,protein,31,0,3.6
+Roasted chicken thigh,Muslo de pollo asado,פרגית צלויה,protein,26,0,8.6
+Cooked turkey breast,Pechuga de pavo cocida,חזה הודו מבושל,protein,30,0,1
+"Lean ground beef, cooked",Carne molida magra cocida,בשר בקר טחון רזה מבושל,protein,26,0,5
+Grilled beef steak,Bistec de res a la parrilla,סטייק בקר צלוי,protein,28,0,9
+Baked salmon,Salmón al horno,סלמון אפוי,protein,22,0,12
+Canned tuna in water,Atún en agua (lata),טונה במים,protein,25.5,0,0.8
+Baked tilapia,Tilapia al horno,אמנון אפוי,protein,26,0,2.7
+Cooked shrimp,Camarones cocidos,שרימפס מבושלים,protein,24,0.2,0.3
+Firm tofu,Tofu firme,טופו קשה,protein,17.3,2.8,8.7
+Whole egg,Huevo entero,ביצה שלמה,dairy_eggs,12.6,1.1,10.6
+Egg white,Clara de huevo,חלבון ביצה,dairy_eggs,10.9,0.7,0.2

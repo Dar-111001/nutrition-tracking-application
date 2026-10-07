@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
     Dialog,
     DialogContent,
@@ -10,17 +10,22 @@ import {
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Calculator } from "lucide-react";
+import { Calculator, Search, Check } from "lucide-react";
 import { FoodItem } from "@/api/entities";
 import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import InlineError from "@/components/InlineError";
 import LogoSpinner from "@/components/LogoSpinner";
+import CategoryChips from "@/components/nutrition/CategoryChips";
+import { foodName, kcalPer100g, matchesSearch, sortByName, countByCategory } from "@/lib/foods";
+import { cn } from "@/lib/utils";
 
 export default function QuickAddFoodDialog({ isOpen, onOpenChange, onSubmit, isLoading }) {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
+    const lang = i18n.resolvedLanguage;
     const [foodItems, setFoodItems] = useState([]);
+    const [search, setSearch] = useState("");
+    const [category, setCategory] = useState("all");
     const [selectedFoodItemId, setSelectedFoodItemId] = useState("");
     const [gramsConsumed, setGramsConsumed] = useState("");
     const [calculatedMacros, setCalculatedMacros] = useState(null);
@@ -41,6 +46,11 @@ export default function QuickAddFoodDialog({ isOpen, onOpenChange, onSubmit, isL
     useEffect(() => {
         if (isOpen) loadLibrary();
     }, [isOpen]);
+
+    const searched = useMemo(() => foodItems.filter((item) => matchesSearch(item, search)), [foodItems, search]);
+    const visible = useMemo(() => sortByName(
+        category === "all" ? searched : searched.filter((item) => item.category === category), lang,
+    ), [searched, category, lang]);
 
     useEffect(() => {
         if (selectedFoodItemId && gramsConsumed > 0) {
@@ -68,7 +78,7 @@ export default function QuickAddFoodDialog({ isOpen, onOpenChange, onSubmit, isL
             const selectedItem = foodItems.find(item => item.id === selectedFoodItemId);
             setSubmitError(null);
             const result = await onSubmit({
-                name: `${selectedItem.name} (${gramsConsumed}g)`,
+                name: `${foodName(selectedItem, lang)} (${gramsConsumed}g)`,
                 ...calculatedMacros,
             });
             // On failure the dialog stays open with the user's choice, and the error shows under the button.
@@ -79,6 +89,8 @@ export default function QuickAddFoodDialog({ isOpen, onOpenChange, onSubmit, isL
 
     const resetForm = () => {
         setSelectedFoodItemId("");
+        setSearch("");
+        setCategory("all");
         setGramsConsumed("");
         setCalculatedMacros(null);
         setSubmitError(null);
@@ -87,14 +99,14 @@ export default function QuickAddFoodDialog({ isOpen, onOpenChange, onSubmit, isL
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => { if (!open) resetForm(); onOpenChange(open); }}>
-            <DialogContent className="sm:max-w-md">
+            <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle className="text-xl">{t("quick_title")}</DialogTitle>
                     <DialogDescription>{t("quick_desc")}</DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-6 py-4">
                     <div className="space-y-2">
-                        <Label htmlFor="foodItem">{t("quick_select_label")}</Label>
+                        <Label htmlFor="foodItem" id="foodItem-label">{t("quick_select_label")}</Label>
                         {libraryLoad.status === "loading" ? (
                             <LogoSpinner size="sm" className="py-2 flex-row" />
                         ) : libraryLoad.status === "error" ? (
@@ -102,16 +114,46 @@ export default function QuickAddFoodDialog({ isOpen, onOpenChange, onSubmit, isL
                         ) : foodItems.length === 0 ? (
                             <p className="text-sm text-gray-600">{t("quick_library_empty")}</p>
                         ) : (
-                            <Select value={selectedFoodItemId} onValueChange={setSelectedFoodItemId}>
-                                <SelectTrigger id="foodItem">
-                                    <SelectValue placeholder={t("quick_select_placeholder")} />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {foodItems.map(item => (
-                                        <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                            <div className="space-y-3">
+                                <div className="relative">
+                                    <Search className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" aria-hidden="true" />
+                                    <Input
+                                        id="foodItem"
+                                        type="search"
+                                        value={search}
+                                        onChange={(e) => setSearch(e.target.value)}
+                                        placeholder={t("quick_search_placeholder")}
+                                        className="ps-9 rounded-full"
+                                        autoComplete="off"
+                                    />
+                                </div>
+                                <CategoryChips value={category} onChange={setCategory} counts={countByCategory(searched)} total={searched.length} compact />
+                                <ul role="listbox" aria-labelledby="foodItem-label" className="max-h-56 overflow-y-auto rounded-xl border border-gray-100 divide-y divide-gray-50">
+                                    {visible.length === 0 ? (
+                                        <li className="px-3 py-6 text-center text-sm text-gray-500">{t("library_no_matches")}</li>
+                                    ) : visible.map((item) => {
+                                        const selected = item.id === selectedFoodItemId;
+                                        return (
+                                            <li key={item.id} role="option" aria-selected={selected}>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setSelectedFoodItemId(item.id)}
+                                                    className={cn(
+                                                        "flex w-full items-center gap-2 px-3 py-2 text-start text-sm transition-colors",
+                                                        selected ? "bg-gray-900 text-white" : "hover:bg-gray-50",
+                                                    )}
+                                                >
+                                                    <span className="flex-1 truncate">{foodName(item, lang)}</span>
+                                                    <span className={cn("text-xs", selected ? "text-white/70" : "text-gray-400")}>
+                                                        {kcalPer100g(item)} {t("library_kcal")}
+                                                    </span>
+                                                    {selected && <Check className="h-4 w-4" aria-hidden="true" />}
+                                                </button>
+                                            </li>
+                                        );
+                                    })}
+                                </ul>
+                            </div>
                         )}
                     </div>
 
