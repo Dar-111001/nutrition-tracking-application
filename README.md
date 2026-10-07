@@ -148,6 +148,8 @@ cp .env.example .env        # then set your own passwords
 docker compose up --build
 ```
 
+The images are built for `linux/amd64`, the CPU the cloud stacks run on, so what you build on any machine can be pushed as is. On an Apple Silicon Mac, Docker Desktop runs them through emulation, which works but is a little slower. For native speed, set `DOCKER_PLATFORM=linux/arm64` in `.env` (see `.env.example`), and remove it again before building images to push.
+
 First run takes 2–3 minutes (downloads Node, nginx, PocketBase, installs packages, builds). On every start PocketBase automatically:
 - creates the admin account from `PB_ADMIN_EMAIL` / `PB_ADMIN_PASSWORD`
 - creates the `food`, `daily_goals` and `food_items` collections, readable and writable only by signed-in users
@@ -256,7 +258,7 @@ To bring the bill to zero between demos, set `create = false` in `terraform.tfva
 
 To ship a new version, push the images with a new tag, set `image_tag` in `terraform.tfvars`, and run `terraform plan` / `terraform apply` again.
 
-Build the images for the CPU architecture the cloud runs, which is `linux/amd64` by default. On Apple Silicon, run `export DOCKER_DEFAULT_PLATFORM=linux/amd64` before `docker compose build`.
+`docker-compose.yml` builds every image for `linux/amd64`, the CPU all three clouds run, so this works from an Apple Silicon Mac too, with no extra flags. Cloud Run and Container Apps reject arm64 images ("must support amd64/linux"), so make sure `DOCKER_PLATFORM` isn't set to `linux/arm64` in your shell or `.env` when you push. On AWS you can run Graviton instead: set `cpu_architecture = "ARM64"` in `terraform.tfvars` and build with `DOCKER_PLATFORM=linux/arm64`.
 
 ---
 

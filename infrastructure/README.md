@@ -104,7 +104,7 @@ REGISTRY=<registry_url> TAG=latest docker compose build
 REGISTRY=<registry_url> TAG=latest docker compose push
 ```
 
-Build for the CPU architecture the cloud runs (`linux/amd64` by default; on Apple Silicon add `--platform linux/amd64`). Finally deploy the rest:
+`docker-compose.yml` builds every image for `linux/amd64`, the CPU all three stacks run on (override with `DOCKER_PLATFORM`), so this works from an Apple Silicon Mac with no extra flags. Only use `DOCKER_PLATFORM=linux/arm64` together with `cpu_architecture = "ARM64"` on AWS: Cloud Run and Container Apps run amd64 only. Finally deploy the rest:
 
 ```bash
 cd infrastructure/<cloud>
