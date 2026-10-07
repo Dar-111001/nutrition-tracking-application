@@ -17,6 +17,8 @@ RUN ARCH=$(uname -m) && \
 
 COPY pb_setup.sh /pb_setup.sh
 RUN chmod +x /pb_setup.sh
+# Built-in foods, loaded once into a fresh database by pb_setup.sh
+COPY seed/foods.json /pb_seed/foods.json
 
 # All state lives here: mount a persistent volume (docker volume locally, EFS on ECS)
 ENV PB_PORT=8090 \
