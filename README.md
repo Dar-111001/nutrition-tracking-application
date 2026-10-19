@@ -13,6 +13,7 @@ A personal nutrition tracking app built with React + Vite, backed by a self-host
 - [Tech Stack](#tech-stack)
 - [Folder Structure](#folder-structure)
 - [Running Locally with Docker](#running-locally-with-docker)
+- [Running the tests](#running-the-tests)
 - [Environment Variables](#environment-variables)
 - [Deploying to the cloud](#deploying-to-the-cloud)
   - [AWS (ECS Fargate)](#deploying-to-aws-ecs-fargate)
@@ -221,14 +222,41 @@ docker compose up api pocketbase   # API and database only
 npm install && npm run dev         # Vite proxies /api to localhost:4000 and /_ to localhost:8090
 ```
 
-### API dev server and tests
+### API dev server
 
 ```bash
 docker compose up pocketbase
 cd api && npm install
 POCKETBASE_URL=http://localhost:8090 npm run dev   # restarts on file changes
-npm test
 ```
+
+---
+
+## Running the tests
+
+Every check CI runs can be run locally with the same command:
+
+| What | Command | Needs |
+|---|---|---|
+| API tests (every route against a fake PocketBase and a fake OpenFoodFacts) | `cd api && npm install && npm test` | Node 20+ |
+| Frontend build | `npm install && npm run build` | Node 20+ |
+| Lint (reported in CI, not blocking yet) | `npm run lint` | Node 20+ |
+| Built-in foods really in the database (SQL against PocketBase's SQLite file) | `docker compose up -d` then `npm run test:db` | Docker |
+| Compose file is valid | `docker compose config --quiet` | Docker |
+
+`npm run test:db` is `docker compose exec -T pocketbase /pb_seed/check_seed.sh`. It
+waits for the seed to finish, then fails if `foods-v1` is not recorded, if any
+built-in food is missing, or if one lacks a name or category, and prints the
+count per category ([details](#the-food-library)). On a database where you
+deleted built-in foods on purpose, it lists them as missing. To check a fresh
+database, the way CI does:
+
+```bash
+docker compose down -v && docker compose up -d --wait pocketbase && npm run test:db
+```
+
+CI (`.github/workflows/ci.yml`) runs all of these on every pull request, plus a
+build of each image. It never pushes images or touches a cloud account.
 
 ---
 
