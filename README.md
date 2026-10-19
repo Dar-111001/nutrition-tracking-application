@@ -13,6 +13,7 @@ A personal nutrition tracking app built with React + Vite, backed by a self-host
 - [Tech Stack](#tech-stack)
 - [Folder Structure](#folder-structure)
 - [Running Locally with Docker](#running-locally-with-docker)
+- [Running the tests](#running-the-tests)
 - [Environment Variables](#environment-variables)
 - [Deploying to the cloud](#deploying-to-the-cloud)
   - [AWS (ECS Fargate)](#deploying-to-aws-ecs-fargate)
@@ -75,6 +76,19 @@ Because the seed runs in the database container, docker compose and all three
 cloud stacks under `infrastructure/` get the same foods with no extra step. To
 add more later, add a `seed/foods-v2.json` with its own history name rather than
 editing `foods-v1`: an edited file would not be loaded again.
+
+To prove the foods really are in the database, run plain SQL against
+PocketBase's SQLite file (`seed/check_seed.sql`, via `seed/check_seed.sh`):
+
+```bash
+docker compose exec pocketbase /pb_seed/check_seed.sh   # or: npm run test:db
+```
+
+It checks that `foods-v1` is recorded, that every seed food is in the library,
+and that each built-in food has all three names and a known category, then
+prints the count per category. CI runs the same check on a fresh database
+started with docker compose. A built-in food you deleted on purpose shows up as
+missing.
 
 In the app, the Food Library page searches across all three languages at once,
 filters by category chips, and groups the foods by category. `sample_data/` has
@@ -159,7 +173,7 @@ All routes except login and the health checks need `Authorization: Bearer <token
 ├── .github/workflows/ci.yml      # CI: builds the frontend and every image, no cloud credentials
 ├── Dockerfile                    # Multi-stage: Node build → nginx serve
 ├── Dockerfile.pocketbase         # PocketBase container with auto-setup
-├── seed/foods.json               # The 100 built-in foods, named in en/es/he
+├── seed/                         # The 100 built-in foods (foods.json) and the SQL check that they loaded
 ├── sample_data/                  # Example CSV for the food library upload
 ├── pb_setup.sh                   # Creates admin, collections, app login, built-in foods (idempotent)
 ├── docker-compose.yml            # Runs app + api + pocketbase together
@@ -197,7 +211,7 @@ First run takes 2–3 minutes (downloads Node, nginx, PocketBase, installs packa
 ```bash
 docker compose down                              # stop, keeps data
 docker compose up                                # start again
-docker compose up --build                        # rebuild after code changes
+docker compose up                                # also rebuilds after code changes (pull_policy: build)
 docker compose down -v && docker compose up --build   # full reset, wipes the database
 ```
 
@@ -208,14 +222,41 @@ docker compose up api pocketbase   # API and database only
 npm install && npm run dev         # Vite proxies /api to localhost:4000 and /_ to localhost:8090
 ```
 
-### API dev server and tests
+### API dev server
 
 ```bash
 docker compose up pocketbase
 cd api && npm install
 POCKETBASE_URL=http://localhost:8090 npm run dev   # restarts on file changes
-npm test
 ```
+
+---
+
+## Running the tests
+
+Every check CI runs can be run locally with the same command:
+
+| What | Command | Needs |
+|---|---|---|
+| API tests (every route against a fake PocketBase and a fake OpenFoodFacts) | `cd api && npm install && npm test` | Node 20+ |
+| Frontend build | `npm install && npm run build` | Node 20+ |
+| Lint (reported in CI, not blocking yet) | `npm run lint` | Node 20+ |
+| Built-in foods really in the database (SQL against PocketBase's SQLite file) | `docker compose up -d` then `npm run test:db` | Docker |
+| Compose file is valid | `docker compose config --quiet` | Docker |
+
+`npm run test:db` is `docker compose exec -T pocketbase /pb_seed/check_seed.sh`. It
+waits for the seed to finish, then fails if `foods-v1` is not recorded, if any
+built-in food is missing, or if one lacks a name or category, and prints the
+count per category ([details](#the-food-library)). On a database where you
+deleted built-in foods on purpose, it lists them as missing. To check a fresh
+database, the way CI does:
+
+```bash
+docker compose down -v && docker compose up -d --wait pocketbase && npm run test:db
+```
+
+CI (`.github/workflows/ci.yml`) runs all of these on every pull request, plus a
+build of each image. It never pushes images or touches a cloud account.
 
 ---
 
