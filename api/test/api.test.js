@@ -200,6 +200,50 @@ test('import saves valid rows and lists the failed ones', async () => {
   assert.deepEqual(r.body.data.failed.map((f) => f.index), [1, 2]);
 });
 
+test('library foods have a name per language and a category', async () => {
+  const created = await call('POST', '/api/food-items', { body: {
+    names: { en: 'Apple', es: 'Manzana', he: 'תפוח' }, category: 'fruit',
+    protein_per_100g: 0.3, carbs_per_100g: 13.8, fat_per_100g: 0.2,
+  } });
+  assert.equal(created.status, 201);
+  assert.equal(created.body.data.name, 'Apple'); // fallback = first language with a name
+  assert.deepEqual(created.body.data.names, { en: 'Apple', es: 'Manzana', he: 'תפוח' });
+  assert.equal(created.body.data.category, 'fruit');
+  assert.equal(created.body.data.builtin, false);
+
+  // Only a Hebrew name: it becomes the fallback; no category means "other"
+  const heOnly = await call('POST', '/api/food-items', { body: { names: { he: 'שקשוקה' }, protein_per_100g: 6, carbs_per_100g: 5, fat_per_100g: 7 } });
+  assert.equal(heOnly.body.data.name, 'שקשוקה');
+  assert.deepEqual(heOnly.body.data.names, { en: '', es: '', he: 'שקשוקה' });
+  assert.equal(heOnly.body.data.category, 'other');
+
+  const noName = await call('POST', '/api/food-items', { body: { names: { en: ' ' }, protein_per_100g: 1, carbs_per_100g: 1, fat_per_100g: 1 } });
+  assertError(noName, 400, 'validation');
+  assertError(await call('POST', '/api/food-items', { body: { name: 'x', category: 'pizza', protein_per_100g: 1, carbs_per_100g: 1, fat_per_100g: 1 } }), 400, 'validation');
+  assertError(await call('POST', '/api/food-items', { body: { names: 'Apple', protein_per_100g: 1, carbs_per_100g: 1, fat_per_100g: 1 } }), 400, 'validation');
+
+  // Renaming updates the fallback; the browser cannot mark a food as built-in
+  const id = created.body.data.id;
+  const renamed = await call('PATCH', `/api/food-items/${id}`, { body: { names: { es: 'Manzana roja' }, seed_key: 'apple' } });
+  assert.equal(renamed.body.data.name, 'Manzana roja');
+  assert.deepEqual(renamed.body.data.names, { en: '', es: 'Manzana roja', he: '' });
+  assert.equal(renamed.body.data.builtin, false);
+  assertError(await call('PATCH', `/api/food-items/${id}`, { body: { seed_key: 'apple' } }), 400, 'validation');
+});
+
+test('built-in foods from the seed are flagged', async () => {
+  db.food_items.push({ id: 'seed1', name: 'Banana', name_en: 'Banana', name_es: 'Banana', name_he: 'בננה',
+    category: 'fruit', seed_key: 'banana', protein_per_100g: 1.1, carbs_per_100g: 22.8, fat_per_100g: 0.3 });
+  const list = await call('GET', '/api/food-items');
+  const banana = list.body.data.find((f) => f.id === 'seed1');
+  assert.equal(banana.builtin, true);
+  assert.equal(banana.names.he, 'בננה');
+  // Older records with only `name` still come back in the same shape
+  const rice = list.body.data.find((f) => f.name === 'Rice');
+  assert.deepEqual(rice.names, { en: '', es: '', he: '' });
+  assert.equal(rice.category, 'other');
+});
+
 test('food search proxies OpenFoodFacts and maps rate limits', async () => {
   const r = await call('GET', '/api/food-search?q=banana');
   assert.deepEqual(r.body.data, [{ name: 'Banana', protein_per_100g: 1.1, carbs_per_100g: 22.8, fat_per_100g: 0.3 }]);

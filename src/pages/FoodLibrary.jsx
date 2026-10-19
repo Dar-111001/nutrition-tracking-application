@@ -1,26 +1,34 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { FoodItem } from "@/api/entities";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { PlusCircle, Pencil, Trash2, Upload, Library } from "lucide-react";
-import { motion } from "framer-motion";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { PlusCircle, Pencil, Trash2, Upload, Library, Search, SearchX } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import { parseFoodItemsCsv } from "@/lib/csv";
 import InlineError from "@/components/InlineError";
 import LogoSpinner from "@/components/LogoSpinner";
 import ConfirmDialog from "@/components/ConfirmDialog";
+import CategoryChips, { CATEGORY_ICONS } from "@/components/nutrition/CategoryChips";
+import {
+    CATEGORIES, NAME_LANGUAGES, foodName, kcalPer100g, matchesSearch, sortByName, countByCategory, groupByCategory,
+} from "@/lib/foods";
 
 const NUMBER_FIELDS = ["protein_per_100g", "carbs_per_100g", "fat_per_100g"];
-const EMPTY_ITEM = { id: null, name: "", protein_per_100g: "", carbs_per_100g: "", fat_per_100g: "" };
+const EMPTY_NAMES = { en: "", es: "", he: "" };
+const EMPTY_ITEM = { id: null, names: EMPTY_NAMES, category: "other", protein_per_100g: "", carbs_per_100g: "", fat_per_100g: "" };
 
 export default function FoodLibrary() {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
+    const lang = i18n.resolvedLanguage;
     const [foodItems, setFoodItems] = useState([]);
     const [load, setLoad] = useState({ status: "loading", error: null });
+    const [search, setSearch] = useState("");
+    const [category, setCategory] = useState("all");
 
     const [showDialog, setShowDialog] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
@@ -38,6 +46,12 @@ export default function FoodLibrary() {
         loadFoodItems();
     }, []);
 
+    // Search narrows the chips' counts; the chosen chip then narrows the list
+    const searched = useMemo(() => foodItems.filter((item) => matchesSearch(item, search)), [foodItems, search]);
+    const groups = useMemo(() => groupByCategory(sortByName(
+        category === "all" ? searched : searched.filter((item) => item.category === category), lang,
+    )), [searched, category, lang]);
+
     const loadFoodItems = async () => {
         setLoad((prev) => ({ status: prev.status === "ready" ? "ready" : "loading", error: null }));
         const result = await FoodItem.list();
@@ -51,19 +65,24 @@ export default function FoodLibrary() {
 
     const openItemDialog = (item) => {
         setIsEditing(Boolean(item));
-        setCurrentItem(item
-            ? { ...item, ...Object.fromEntries(NUMBER_FIELDS.map((f) => [f, String(item[f] ?? "")])) }
-            : EMPTY_ITEM);
+        if (!item) {
+            setCurrentItem({ ...EMPTY_ITEM, category: category === "all" ? "other" : category });
+        } else {
+            // Foods saved before names per language only have `name`: start it in the current language
+            const names = Object.values(item.names).some(Boolean) ? item.names : { ...EMPTY_NAMES, [lang]: item.name };
+            setCurrentItem({ ...item, names, ...Object.fromEntries(NUMBER_FIELDS.map((f) => [f, String(item[f] ?? "")])) });
+        }
         setSaveError(null);
         setShowDialog(true);
     };
 
     const handleSave = async () => {
-        if (!currentItem.name.trim()) {
+        const names = Object.fromEntries(Object.entries(currentItem.names).map(([code, name]) => [code, name.trim()]));
+        if (!Object.values(names).some(Boolean)) {
             setSaveError(t("library_alert_no_name"));
             return;
         }
-        const dataToSave = { name: currentItem.name.trim() };
+        const dataToSave = { names, category: currentItem.category };
         for (const field of NUMBER_FIELDS) {
             const raw = String(currentItem[field]).trim();
             const value = raw === "" ? 0 : Number(raw);
@@ -139,8 +158,9 @@ export default function FoodLibrary() {
         }
 
         setIsUploading(true);
-        const items = parsed.items.map(({ name, protein_per_100g, carbs_per_100g, fat_per_100g }) =>
-            ({ name, protein_per_100g, carbs_per_100g, fat_per_100g }));
+        // `line` is only used for the error list, so it is not sent to the API
+        const items = parsed.items.map(({ name, names, category, protein_per_100g, carbs_per_100g, fat_per_100g }) =>
+            ({ name, names, category, protein_per_100g, carbs_per_100g, fat_per_100g }));
         const result = await FoodItem.importMany(items);
         setIsUploading(false);
         input.value = "";
@@ -223,6 +243,22 @@ export default function FoodLibrary() {
                                 </Button>
                             </div>
                         </div>
+                        {load.status === "ready" && foodItems.length > 0 && (
+                            <div className="space-y-4 pt-4">
+                                <div className="relative">
+                                    <Search className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" aria-hidden="true" />
+                                    <Input
+                                        type="search"
+                                        value={search}
+                                        onChange={(e) => setSearch(e.target.value)}
+                                        placeholder={t("library_search_placeholder")}
+                                        aria-label={t("library_search_placeholder")}
+                                        className="ps-9 rounded-full bg-white"
+                                    />
+                                </div>
+                                <CategoryChips value={category} onChange={setCategory} counts={countByCategory(searched)} total={searched.length} />
+                            </div>
+                        )}
                     </CardHeader>
                     <CardContent>
                         {load.status === "loading" ? (
@@ -235,63 +271,98 @@ export default function FoodLibrary() {
                                 <p className="text-xl text-gray-500">{t("library_empty")}</p>
                                 <p className="text-gray-400 mt-2">{t("library_empty_hint")}</p>
                             </div>
+                        ) : groups.length === 0 ? (
+                            <div className="text-center py-12">
+                                <SearchX className="w-12 h-12 mx-auto text-gray-300 mb-4" />
+                                <p className="text-lg text-gray-500">{t("library_no_matches")}</p>
+                            </div>
                         ) : (
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>{t("library_col_name")}</TableHead>
-                                        <TableHead className="text-center">{t("library_col_protein")}</TableHead>
-                                        <TableHead className="text-center">{t("library_col_carbs")}</TableHead>
-                                        <TableHead className="text-center">{t("library_col_fat")}</TableHead>
-                                        <TableHead className="text-right">{t("library_col_actions")}</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {foodItems.map((item) => (
-                                        <TableRow key={item.id}>
-                                            <TableCell className="font-medium">{item.name}</TableCell>
-                                            <TableCell className="text-center">{item.protein_per_100g}g</TableCell>
-                                            <TableCell className="text-center">{item.carbs_per_100g}g</TableCell>
-                                            <TableCell className="text-center">{item.fat_per_100g}g</TableCell>
-                                            <TableCell className="text-right">
-                                                <div className="flex gap-2 justify-end">
-                                                    <Button variant="ghost" size="icon" onClick={() => openItemDialog(item)} aria-label={t("library_edit_title")}>
-                                                        <Pencil className="w-4 h-4 text-blue-600" />
-                                                    </Button>
-                                                    <Button variant="ghost" size="icon" onClick={() => setItemToDelete(item)} aria-label={t("library_delete_btn")}>
-                                                        <Trash2 className="w-4 h-4 text-red-600" />
-                                                    </Button>
-                                                </div>
-                                            </TableCell>
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
+                            <div className="space-y-8">
+                                <AnimatePresence initial={false}>
+                                    {groups.map(({ category: key, items }) => {
+                                        const Icon = CATEGORY_ICONS[key];
+                                        return (
+                                            <motion.section
+                                                key={key}
+                                                layout
+                                                initial={{ opacity: 0, y: 12 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                exit={{ opacity: 0 }}
+                                                aria-labelledby={`category-${key}`}
+                                            >
+                                                <h2 id={`category-${key}`} className="flex items-center gap-2 text-lg font-medium text-gray-800 mb-3">
+                                                    <Icon className="w-5 h-5 text-gray-500" aria-hidden="true" />
+                                                    {t(`category_${key}`)}
+                                                    <span className="text-sm font-normal text-gray-400">{items.length}</span>
+                                                </h2>
+                                                <ul className="divide-y divide-gray-100 rounded-2xl border border-gray-100 bg-white/70">
+                                                    {items.map((item) => (
+                                                        <FoodRow
+                                                            key={item.id}
+                                                            item={item}
+                                                            lang={lang}
+                                                            onEdit={() => openItemDialog(item)}
+                                                            onDelete={() => setItemToDelete(item)}
+                                                        />
+                                                    ))}
+                                                </ul>
+                                            </motion.section>
+                                        );
+                                    })}
+                                </AnimatePresence>
+                            </div>
                         )}
                     </CardContent>
                 </Card>
 
                 <Dialog open={showDialog} onOpenChange={setShowDialog}>
-                    <DialogContent>
+                    <DialogContent className="max-h-[90vh] overflow-y-auto">
                         <DialogHeader>
                             <DialogTitle>{isEditing ? t("library_edit_title") : t("library_add_title")}</DialogTitle>
                         </DialogHeader>
                         <div className="grid gap-4 py-4">
+                            <fieldset className="space-y-3">
+                                <legend className="text-sm font-medium">{t("library_names_label")}</legend>
+                                <p className="text-xs text-gray-500">{t("library_names_hint")}</p>
+                                {NAME_LANGUAGES.map(({ code, label, dir }) => (
+                                    <div key={code} className="grid grid-cols-[5rem_1fr] items-center gap-3">
+                                        <Label htmlFor={`name-${code}`} className="text-gray-600">{label}</Label>
+                                        <Input
+                                            id={`name-${code}`}
+                                            dir={dir}
+                                            lang={code}
+                                            value={currentItem.names[code]}
+                                            onChange={(e) => setCurrentItem({ ...currentItem, names: { ...currentItem.names, [code]: e.target.value } })}
+                                        />
+                                    </div>
+                                ))}
+                            </fieldset>
                             <div className="space-y-2">
-                                <Label htmlFor="name">{t("library_name_label")}</Label>
-                                <Input id="name" value={currentItem.name} onChange={(e) => setCurrentItem({ ...currentItem, name: e.target.value })} />
+                                <Label htmlFor="category">{t("library_category_label")}</Label>
+                                <Select value={currentItem.category} onValueChange={(value) => setCurrentItem({ ...currentItem, category: value })}>
+                                    <SelectTrigger id="category">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {CATEGORIES.map((key) => (
+                                            <SelectItem key={key} value={key}>{t(`category_${key}`)}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
                             </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="protein">{t("library_protein_label")}</Label>
-                                <Input id="protein" type="number" inputMode="decimal" min="0" step="0.1" value={currentItem.protein_per_100g} onChange={(e) => setCurrentItem({ ...currentItem, protein_per_100g: e.target.value })} />
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="carbs">{t("library_carbs_label")}</Label>
-                                <Input id="carbs" type="number" inputMode="decimal" min="0" step="0.1" value={currentItem.carbs_per_100g} onChange={(e) => setCurrentItem({ ...currentItem, carbs_per_100g: e.target.value })} />
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="fat">{t("library_fat_label")}</Label>
-                                <Input id="fat" type="number" inputMode="decimal" min="0" step="0.1" value={currentItem.fat_per_100g} onChange={(e) => setCurrentItem({ ...currentItem, fat_per_100g: e.target.value })} />
+                            <div className="grid grid-cols-3 gap-3">
+                                <div className="space-y-2">
+                                    <Label htmlFor="protein">{t("library_protein_label")}</Label>
+                                    <Input id="protein" type="number" inputMode="decimal" min="0" step="0.1" value={currentItem.protein_per_100g} onChange={(e) => setCurrentItem({ ...currentItem, protein_per_100g: e.target.value })} />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="carbs">{t("library_carbs_label")}</Label>
+                                    <Input id="carbs" type="number" inputMode="decimal" min="0" step="0.1" value={currentItem.carbs_per_100g} onChange={(e) => setCurrentItem({ ...currentItem, carbs_per_100g: e.target.value })} />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="fat">{t("library_fat_label")}</Label>
+                                    <Input id="fat" type="number" inputMode="decimal" min="0" step="0.1" value={currentItem.fat_per_100g} onChange={(e) => setCurrentItem({ ...currentItem, fat_per_100g: e.target.value })} />
+                                </div>
                             </div>
                         </div>
                         <DialogFooter className="flex-col sm:flex-col">
@@ -308,11 +379,49 @@ export default function FoodLibrary() {
                     open={Boolean(itemToDelete)}
                     onOpenChange={(open) => { if (!open) setItemToDelete(null); }}
                     title={t("library_delete_title")}
-                    description={itemToDelete ? `${itemToDelete.name}: ${t("library_confirm_delete")}` : ""}
+                    description={itemToDelete ? `${foodName(itemToDelete, lang)}: ${t("library_confirm_delete")}` : ""}
                     confirmLabel={t("library_delete_btn")}
                     onConfirm={handleDelete}
                 />
             </div>
         </div>
+    );
+}
+
+// One food: its name in the current language (other languages underneath),
+// a built-in or "mine" tag, macros and energy per 100 g, and actions.
+function FoodRow({ item, lang, onEdit, onDelete }) {
+    const { t } = useTranslation();
+    const name = foodName(item, lang);
+    const otherNames = [...new Set(Object.values(item.names).filter((n) => n && n !== name))];
+
+    return (
+        <li className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
+            <div className="min-w-0 flex-1 basis-48">
+                <div className="flex items-center gap-2">
+                    <span className="font-medium text-gray-900 truncate">{name}</span>
+                    <span className={item.builtin
+                        ? "shrink-0 rounded-full bg-indigo-50 px-2 py-0.5 text-xs text-indigo-700"
+                        : "shrink-0 rounded-full bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700"}>
+                        {item.builtin ? t("library_tag_builtin") : t("library_tag_mine")}
+                    </span>
+                </div>
+                {otherNames.length > 0 && <p className="text-xs text-gray-400 truncate">{otherNames.join(" · ")}</p>}
+            </div>
+            <div className="flex items-center gap-2 text-xs" aria-label={t("library_per_100g")}>
+                <span className="rounded-lg bg-emerald-50 px-2 py-1 text-emerald-700">{t("quick_protein")} {item.protein_per_100g}g</span>
+                <span className="rounded-lg bg-amber-50 px-2 py-1 text-amber-700">{t("quick_carbs")} {item.carbs_per_100g}g</span>
+                <span className="rounded-lg bg-orange-50 px-2 py-1 text-orange-700">{t("quick_fat")} {item.fat_per_100g}g</span>
+                <span className="w-16 text-end text-gray-500">{kcalPer100g(item)} {t("library_kcal")}</span>
+            </div>
+            <div className="flex gap-1">
+                <Button variant="ghost" size="icon" onClick={onEdit} aria-label={t("library_edit_title")}>
+                    <Pencil className="w-4 h-4 text-blue-600" />
+                </Button>
+                <Button variant="ghost" size="icon" onClick={onDelete} aria-label={t("library_delete_btn")}>
+                    <Trash2 className="w-4 h-4 text-red-600" />
+                </Button>
+            </div>
+        </li>
     );
 }

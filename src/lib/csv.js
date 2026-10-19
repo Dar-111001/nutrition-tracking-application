@@ -1,8 +1,9 @@
 // Food library CSV import: parsing and per-row validation.
-// Expected header: name, protein_per_100g, carbs_per_100g, fat_per_100g (any order).
+// Header (any order): protein_per_100g, carbs_per_100g, fat_per_100g, and at
+// least one name column: name, name_en, name_es or name_he. category is optional.
 
-export const REQUIRED_COLUMNS = ["name", "protein_per_100g", "carbs_per_100g", "fat_per_100g"];
-const NUMBER_COLUMNS = REQUIRED_COLUMNS.slice(1);
+const NUMBER_COLUMNS = ["protein_per_100g", "carbs_per_100g", "fat_per_100g"];
+const NAME_COLUMNS = ["name", "name_en", "name_es", "name_he"];
 
 /**
  * Split CSV text into rows of fields (RFC 4180): quoted fields may contain
@@ -52,16 +53,17 @@ function toNumber(raw) {
  *
  * Returns { missingColumns, items, invalid }:
  *  - missingColumns: required header names not found (import should stop)
- *  - items:   [{ line, name, protein_per_100g, carbs_per_100g, fat_per_100g }]
+ *  - items:   [{ line, name, names: { en, es, he }, category, protein_per_100g, carbs_per_100g, fat_per_100g }]
  *  - invalid: [{ line, reason, column? }]   line numbers are 1-based, header = 1
  */
 export function parseFoodItemsCsv(text) {
     const rows = parseCsv(text);
     const header = (rows[0] || []).map((h) => h.trim().toLowerCase());
-    const missingColumns = REQUIRED_COLUMNS.filter((c) => !header.includes(c));
+    const missingColumns = NUMBER_COLUMNS.filter((c) => !header.includes(c));
+    if (!NAME_COLUMNS.some((c) => header.includes(c))) missingColumns.unshift("name");
     if (missingColumns.length > 0) return { missingColumns, items: [], invalid: [] };
 
-    const index = Object.fromEntries(REQUIRED_COLUMNS.map((c) => [c, header.indexOf(c)]));
+    const cell = (cols, column) => (header.includes(column) ? (cols[header.indexOf(column)] || "").trim() : "");
     const items = [];
     const invalid = [];
 
@@ -69,15 +71,17 @@ export function parseFoodItemsCsv(text) {
         const line = i + 2;
         if (cols.every((c) => c.trim() === "")) return; // blank line
 
-        const name = (cols[index.name] || "").trim();
+        const names = { en: cell(cols, "name_en"), es: cell(cols, "name_es"), he: cell(cols, "name_he") };
+        const name = cell(cols, "name") || names.en || names.es || names.he;
         if (!name) {
             invalid.push({ line, reason: "missing_name" });
             return;
         }
 
-        const item = { line, name };
+        // An unknown category is left for the server to reject, so the row shows up as failed
+        const item = { line, name, names, category: cell(cols, "category") || undefined };
         for (const column of NUMBER_COLUMNS) {
-            const value = toNumber(cols[index[column]]);
+            const value = toNumber(cols[header.indexOf(column)]);
             if (Number.isNaN(value)) {
                 invalid.push({ line, reason: "invalid_number", column });
                 return;

@@ -8,6 +8,7 @@ A personal nutrition tracking app built with React + Vite, backed by a self-host
 
 - [Features](#features)
 - [Architecture](#architecture)
+- [The food library](#the-food-library)
 - [API contract](#api-contract)
 - [Tech Stack](#tech-stack)
 - [Folder Structure](#folder-structure)
@@ -24,7 +25,7 @@ A personal nutrition tracking app built with React + Vite, backed by a self-host
 
 - Daily food journal with macro tracking (protein, carbs, fat)
 - Macro portion system (1 portion = 30g protein / 30g carbs / 10g fat)
-- Personal food library with per-100g nutritional values
+- Food library of 100 built-in basics, named in English, Spanish and Hebrew, plus your own foods, with macros per 100 g
 - Monthly progress tracker
 - Self-hosted database — your data stays on your machine
 
@@ -50,6 +51,34 @@ A personal nutrition tracking app built with React + Vite, backed by a self-host
 - The Node API is the only thing that talks to PocketBase. Every response it sends follows one JSON contract (below), so the frontend handles success and failure the same way everywhere.
 - All images are built once and configured only through environment variables, so the same image runs in docker compose, on ECS, on Cloud Run and on Container Apps.
 - The data collections require a signed-in user. The app shows a login screen; the login is created from env vars on startup and public sign-up is disabled.
+
+## The food library
+
+The `food_items` collection holds every food you can pick from, built-in and your own:
+
+| Field | Notes |
+|---|---|
+| `name` | the fallback name, shown when the current language has none |
+| `name_en`, `name_es`, `name_he` | the name in each language the app ships in |
+| `category` | one of `protein`, `dairy_eggs`, `grains`, `legumes`, `vegetables`, `fruit`, `nuts_seeds`, `fats_oils`, `snacks_sweets`, `drinks`, `other` |
+| `seed_key` | set only on built-in foods, and unique; the API exposes it as `builtin: true` |
+| `protein_per_100g`, `carbs_per_100g`, `fat_per_100g` | grams per 100 g |
+
+`seed/foods.json` holds 100 basics, ten per category, each with its three names.
+`pb_setup.sh` loads them on start, once, like a database migration:
+
+- a food is skipped when its `seed_key`, or any of its names, is already there, so nothing you added is overwritten or duplicated
+- `foods-v1` is written to the `seed_history` collection only after every food loaded, so a start that fails half way simply loads the rest next time
+- once recorded, the seed never runs again, so a built-in food you delete stays deleted
+
+Because the seed runs in the database container, docker compose and all three
+cloud stacks under `infrastructure/` get the same foods with no extra step. To
+add more later, add a `seed/foods-v2.json` with its own history name rather than
+editing `foods-v1`: an edited file would not be loaded again.
+
+In the app, the Food Library page searches across all three languages at once,
+filters by category chips, and groups the foods by category. `sample_data/` has
+an example CSV for the upload button.
 
 ## API contract
 
@@ -130,7 +159,9 @@ All routes except login and the health checks need `Authorization: Bearer <token
 ├── .github/workflows/ci.yml      # CI: builds the frontend and every image, no cloud credentials
 ├── Dockerfile                    # Multi-stage: Node build → nginx serve
 ├── Dockerfile.pocketbase         # PocketBase container with auto-setup
-├── pb_setup.sh                   # Creates admin, collections, app login (idempotent)
+├── seed/foods.json               # The 100 built-in foods, named in en/es/he
+├── sample_data/                  # Example CSV for the food library upload
+├── pb_setup.sh                   # Creates admin, collections, app login, built-in foods (idempotent)
 ├── docker-compose.yml            # Runs app + api + pocketbase together
 └── .env.example                  # Template for the credentials
 ```
@@ -152,7 +183,8 @@ The images are built for `linux/amd64`, the CPU the cloud stacks run on, so what
 
 First run takes 2–3 minutes (downloads Node, nginx, PocketBase, installs packages, builds). On every start PocketBase automatically:
 - creates the admin account from `PB_ADMIN_EMAIL` / `PB_ADMIN_PASSWORD`
-- creates the `food`, `daily_goals` and `food_items` collections, readable and writable only by signed-in users
+- creates the `food`, `daily_goals` and `food_items` collections, readable and writable only by signed-in users, and adds any field a newer version introduced
+- loads the 100 built-in foods from `seed/foods.json` into the food library, once (see [The food library](#the-food-library))
 - creates the app login from `APP_USER_EMAIL` / `APP_USER_PASSWORD` (or the admin pair if those are not set) and turns off public sign-up
 
 | Service | URL |
@@ -225,6 +257,7 @@ The health check answers `200` only when the API and PocketBase are both up (it 
 | `APP_USER_PASSWORD` | `PB_ADMIN_PASSWORD` | Password to sign in to the app. Re-applied on every start, so changing it and restarting changes the password |
 | `PB_PORT` | `8090` | PocketBase port |
 | `PB_DATA_DIR` | `/pb/pb_data` | Where the database lives. Must be a persistent volume |
+| `PB_SEED_FILE` | `/pb_seed/foods.json` | The built-in foods loaded into a fresh database |
 
 Locally these come from `.env` (gitignored, and excluded from image builds). Nothing secret is baked into any image.
 
