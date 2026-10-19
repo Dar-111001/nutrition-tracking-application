@@ -76,6 +76,19 @@ cloud stacks under `infrastructure/` get the same foods with no extra step. To
 add more later, add a `seed/foods-v2.json` with its own history name rather than
 editing `foods-v1`: an edited file would not be loaded again.
 
+To prove the foods really are in the database, run plain SQL against
+PocketBase's SQLite file (`seed/check_seed.sql`, via `seed/check_seed.sh`):
+
+```bash
+docker compose exec pocketbase /pb_seed/check_seed.sh   # or: npm run test:db
+```
+
+It checks that `foods-v1` is recorded, that every seed food is in the library,
+and that each built-in food has all three names and a known category, then
+prints the count per category. CI runs the same check on a fresh database
+started with docker compose. A built-in food you deleted on purpose shows up as
+missing.
+
 In the app, the Food Library page searches across all three languages at once,
 filters by category chips, and groups the foods by category. `sample_data/` has
 an example CSV for the upload button.
@@ -159,7 +172,7 @@ All routes except login and the health checks need `Authorization: Bearer <token
 ├── .github/workflows/ci.yml      # CI: builds the frontend and every image, no cloud credentials
 ├── Dockerfile                    # Multi-stage: Node build → nginx serve
 ├── Dockerfile.pocketbase         # PocketBase container with auto-setup
-├── seed/foods.json               # The 100 built-in foods, named in en/es/he
+├── seed/                         # The 100 built-in foods (foods.json) and the SQL check that they loaded
 ├── sample_data/                  # Example CSV for the food library upload
 ├── pb_setup.sh                   # Creates admin, collections, app login, built-in foods (idempotent)
 ├── docker-compose.yml            # Runs app + api + pocketbase together
@@ -197,7 +210,7 @@ First run takes 2–3 minutes (downloads Node, nginx, PocketBase, installs packa
 ```bash
 docker compose down                              # stop, keeps data
 docker compose up                                # start again
-docker compose up --build                        # rebuild after code changes
+docker compose up                                # also rebuilds after code changes (pull_policy: build)
 docker compose down -v && docker compose up --build   # full reset, wipes the database
 ```
 

@@ -9,6 +9,12 @@
 # DOCKER_PLATFORM=linux/arm64 in .env, and never push an arm64 image to
 # Cloud Run or Container Apps: they only run amd64.
 #
+# `pull_policy: build` rebuilds each image on every `docker compose up` (cached
+# layers make it quick), so a plain `up` after `git pull` never runs old code.
+#
+# Check the database really has the built-in foods:
+#   docker compose exec pocketbase /pb_seed/check_seed.sh
+#
 # browser -> app (nginx: React build, /api proxy) -> api (Node) -> pocketbase (database)
 services:
   app:
@@ -16,6 +22,7 @@ services:
     image: ${REGISTRY:-nutrition}/nutrition-app:${TAG:-latest}
     build:
       context: .
+    pull_policy: build
     ports:
       - "3000:80"
     environment:
@@ -34,6 +41,7 @@ services:
     image: ${REGISTRY:-nutrition}/nutrition-api:${TAG:-latest}
     build:
       context: ./api
+    pull_policy: build
     # Exposed locally so `npm run dev` (Vite) can reach it; on ECS only nginx is public
     ports:
       - "4000:4000"
@@ -52,6 +60,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.pocketbase
+    pull_policy: build
     # Exposed locally so the API can run outside Docker (`cd api && npm run dev`)
     ports:
       - "8090:8090"

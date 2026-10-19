@@ -57,6 +57,26 @@ jobs:
           touch .env   # compose expects it; real values are never needed to validate
           docker compose config --quiet
 
+  database:
+    name: Database seed (docker compose + SQL)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Throwaway credentials for a database that only lives for this job
+      - name: Start PocketBase on a fresh volume with docker compose
+        run: |
+          printf 'PB_ADMIN_EMAIL=ci@example.com\nPB_ADMIN_PASSWORD=ci-only-password-123\n' > .env
+          docker compose up -d --build --wait pocketbase
+      # The same command you run locally: plain SQL against PocketBase's SQLite file
+      - name: Check the built-in foods with SQL
+        run: docker compose exec -T pocketbase /pb_seed/check_seed.sh
+      - name: PocketBase logs
+        if: always()
+        run: docker compose logs pocketbase
+      - name: Remove the container and its volume
+        if: always()
+        run: docker compose down -v
+
   images:
     name: Image (${{ matrix.name }})
     runs-on: ubuntu-latest

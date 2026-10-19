@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:db": "docker compose exec -T pocketbase /pb_seed/check_seed.sh"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.6",

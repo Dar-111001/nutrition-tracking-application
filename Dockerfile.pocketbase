@@ -1,7 +1,8 @@
 FROM alpine:3.20
 ARG PB_VERSION=0.22.20
 
-RUN apk add --no-cache unzip ca-certificates wget curl jq
+# sqlite is only for seed/check_seed.sh, which checks the database with plain SQL
+RUN apk add --no-cache unzip ca-certificates wget curl jq sqlite
 
 # Download PocketBase for the correct CPU architecture
 RUN ARCH=$(uname -m) && \
@@ -17,8 +18,10 @@ RUN ARCH=$(uname -m) && \
 
 COPY pb_setup.sh /pb_setup.sh
 RUN chmod +x /pb_setup.sh
-# Built-in foods, loaded once into a fresh database by pb_setup.sh
-COPY seed/foods.json /pb_seed/foods.json
+# Built-in foods, loaded once into a fresh database by pb_setup.sh, and the
+# SQL check that proves they loaded (docker compose exec pocketbase /pb_seed/check_seed.sh)
+COPY seed/foods.json seed/check_seed.sql seed/check_seed.sh /pb_seed/
+RUN chmod +x /pb_seed/check_seed.sh
 
 # All state lives here: mount a persistent volume (docker volume locally, EFS on ECS)
 ENV PB_PORT=8090 \
