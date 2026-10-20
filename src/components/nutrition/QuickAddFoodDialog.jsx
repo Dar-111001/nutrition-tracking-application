@@ -17,7 +17,7 @@ import { useTranslation } from "react-i18next";
 import InlineError from "@/components/InlineError";
 import LogoSpinner from "@/components/LogoSpinner";
 import CategoryChips from "@/components/nutrition/CategoryChips";
-import { foodName, kcalPer100g, matchesSearch, sortByName, countByCategory } from "@/lib/foods";
+import { foodName, kcalPer100g, macrosForAmount, matchesSearch, sortByName, countByCategory } from "@/lib/foods";
 import { cn } from "@/lib/utils";
 
 export default function QuickAddFoodDialog({ isOpen, onOpenChange, onSubmit, isLoading }) {
@@ -56,17 +56,7 @@ export default function QuickAddFoodDialog({ isOpen, onOpenChange, onSubmit, isL
         if (selectedFoodItemId && gramsConsumed > 0) {
             const selectedItem = foodItems.find(item => item.id === selectedFoodItemId);
             if (selectedItem) {
-                const proteinGrams = (selectedItem.protein_per_100g / 100) * parseFloat(gramsConsumed);
-                const carbsGrams   = (selectedItem.carbs_per_100g   / 100) * parseFloat(gramsConsumed);
-                const fatGrams     = (selectedItem.fat_per_100g     / 100) * parseFloat(gramsConsumed);
-                setCalculatedMacros({
-                    protein_grams:    Math.round(proteinGrams * 10) / 10,
-                    carbs_grams:      Math.round(carbsGrams   * 10) / 10,
-                    fat_grams:        Math.round(fatGrams     * 10) / 10,
-                    protein_portions: Math.round((proteinGrams / 30) * 10) / 10,
-                    carbs_portions:   Math.round((carbsGrams   / 30) * 10) / 10,
-                    fat_portions:     Math.round((fatGrams     / 10) * 10) / 10,
-                });
+                setCalculatedMacros(macrosForAmount(selectedItem, parseFloat(gramsConsumed)));
             }
         } else {
             setCalculatedMacros(null);

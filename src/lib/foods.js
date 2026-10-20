@@ -51,3 +51,21 @@ export function groupByCategory(items) {
         .map((category) => ({ category, items: items.filter((item) => item.category === category) }))
         .filter((group) => group.items.length > 0);
 }
+
+// One macro portion = 30 g protein, 30 g carbs or 10 g fat (same as
+// PORTION_GRAMS in api/src/routes/foods.js, which stores the real numbers).
+const PORTION_GRAMS = { protein: 30, carbs: 30, fat: 10 };
+const round1 = (n) => Math.round(n * 10) / 10;
+
+// Grams and portions eaten, from values per 100 g and the amount eaten.
+// macrosForAmount({ protein_per_100g: 12.6, carbs_per_100g: 1.1, fat_per_100g: 10.6 }, 150)
+//   -> { protein_grams: 18.9, ..., fat_grams: 15.9, fat_portions: 1.6 }
+export function macrosForAmount(per100g, grams) {
+    const out = {};
+    for (const [macro, size] of Object.entries(PORTION_GRAMS)) {
+        const eaten = ((Number(per100g[`${macro}_per_100g`]) || 0) / 100) * grams;
+        out[`${macro}_grams`] = round1(eaten);
+        out[`${macro}_portions`] = round1(eaten / size);
+    }
+    return out;
+}
