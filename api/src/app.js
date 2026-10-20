@@ -29,7 +29,7 @@ export function createApp(config) {
   app.use('/api/foods', requireAuth, foodRoutes({ pocketbase }));
   app.use('/api/goals', requireAuth, goalRoutes({ pocketbase }));
   app.use('/api/food-items', requireAuth, foodItemRoutes({ pocketbase }));
-  app.use('/api/food-search', requireAuth, foodSearchRoutes(config));
+  app.use('/api/food-search', requireAuth, foodSearchRoutes({ ...config, pocketbase }));
 
   // Unknown route, then the single error handler. Every failure leaves here
   // in the standard { ok: false, error } shape.

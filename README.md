@@ -9,6 +9,7 @@ A personal nutrition tracking app built with React + Vite, backed by a self-host
 - [Features](#features)
 - [Architecture](#architecture)
 - [The food library](#the-food-library)
+  - [Auto Search (Add New Food)](#auto-search-add-new-food)
 - [API contract](#api-contract)
 - [Tech Stack](#tech-stack)
 - [Folder Structure](#folder-structure)
@@ -94,6 +95,25 @@ In the app, the Food Library page searches across all three languages at once,
 filters by category chips, and groups the foods by category. `sample_data/` has
 an example CSV for the upload button.
 
+### Auto Search (Add New Food)
+
+The **Auto Search** button next to the food name fills in protein, carbs and fat
+per 100 g. It needs no API key and no configuration. It looks in two places:
+
+1. **Your food library**, in any of the three languages ("egg", "huevo" or
+   "ביצה" all find the built-in eggs). This is instant and works offline.
+2. **[OpenFoodFacts](https://world.openfoodfacts.org)**, a free, open database
+   of packaged products, for anything the library does not have.
+
+OpenFoodFacts is a shared public service with limits of its own: its search
+allows about **10 requests per minute from one IP address**, and it answers
+`503` when it is overloaded. When that happens you still get the library
+matches; if there are none, the form says which limit was hit, in red under the
+button. Wait a minute or type the values in. On a classroom network where many
+students share one public IP, the limit is shared too, so common foods are best
+added to the library (see `seed/foods.json`). `OPENFOODFACTS_URL` and
+`FOOD_SEARCH_TIMEOUT_MS` change where and how long the API searches.
+
 ## API contract
 
 Every `/api` response body has one of two shapes:
@@ -115,7 +135,7 @@ Every `/api` response body has one of two shapes:
 | `GET /api/goals`, `PUT /api/goals` | Daily macro goals |
 | `GET/POST /api/food-items`, `PATCH/DELETE /api/food-items/:id` | Food library |
 | `POST /api/food-items/import` | `{ items: [...] }`, saves valid rows, lists the failed ones |
-| `GET /api/food-search?q=` | Macros per 100 g from OpenFoodFacts |
+| `GET /api/food-search?q=` | Macros per 100 g: library matches (`source: "library"`), then OpenFoodFacts (`source: "openfoodfacts"`) |
 | `GET /api/health` | Liveness: the API process is up |
 | `GET /api/ready` | Readiness: the API can reach PocketBase (503 if not) |
 
