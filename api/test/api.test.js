@@ -15,6 +15,7 @@ const db = { food: [], daily_goals: [], food_items: [] };
 let pbDown = false;
 let pbSlow = false;
 let failDeletes = false;
+let offDown = false;
 let nextId = 1;
 
 function fakePocketBase(req, res) {
@@ -70,6 +71,7 @@ function fakePocketBase(req, res) {
 function fakeOpenFoodFacts(req, res) {
   const q = new URL(req.url, 'http://off').searchParams.get('search_terms');
   if (q === 'busy') { res.writeHead(429); return res.end(); }
+  if (q === 'overloaded' || offDown) { res.writeHead(503); return res.end(); }
   res.writeHead(200, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify({ products: [
     { product_name: 'Banana', nutriments: { proteins_100g: 1.09, carbohydrates_100g: 22.84, fat_100g: 0.33 } },
@@ -244,11 +246,31 @@ test('built-in foods from the seed are flagged', async () => {
   assert.equal(rice.category, 'other');
 });
 
-test('food search proxies OpenFoodFacts and maps rate limits', async () => {
+test('food search proxies OpenFoodFacts and explains its limits', async () => {
   const r = await call('GET', '/api/food-search?q=banana');
-  assert.deepEqual(r.body.data, [{ name: 'Banana', protein_per_100g: 1.1, carbs_per_100g: 22.8, fat_per_100g: 0.3 }]);
-  assertError(await call('GET', '/api/food-search?q=busy'), 429, 'rate_limited');
+  // The library's own banana comes first, then OpenFoodFacts
+  assert.deepEqual(r.body.data.map((f) => [f.source, f.name]), [['library', 'Banana'], ['openfoodfacts', 'Banana']]);
+  assert.deepEqual(r.body.data[1], { source: 'openfoodfacts', name: 'Banana', protein_per_100g: 1.1, carbs_per_100g: 22.8, fat_per_100g: 0.3 });
+
+  const limited = await call('GET', '/api/food-search?q=busy');
+  assertError(limited, 429, 'rate_limited');
+  assert.match(limited.body.error.message, /OpenFoodFacts/);
+  assertError(await call('GET', '/api/food-search?q=overloaded'), 502, 'server');
   assertError(await call('GET', '/api/food-search'), 400, 'validation');
+});
+
+test('food search finds library foods in any language even when OpenFoodFacts is down', async () => {
+  offDown = true;
+  const down = await call('GET', '/api/food-search?q=bana');
+  const nothing = await call('GET', '/api/food-search?q=pizza');
+  offDown = false;
+  assert.equal(down.status, 200);
+  assert.deepEqual(down.body.data.map((f) => [f.source, f.name]), [['library', 'Banana']]);
+  assertError(nothing, 502, 'server');
+
+  const hebrew = await call('GET', `/api/food-search?q=${encodeURIComponent('בננ')}`);
+  assert.equal(hebrew.status, 200);
+  assert.deepEqual(hebrew.body.data.filter((f) => f.source === 'library').map((f) => f.name), ['Banana']);
 });
 
 test('upstream timeouts and errors keep the contract', async () => {

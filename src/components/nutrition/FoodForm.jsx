@@ -15,6 +15,19 @@ import { macrosForAmount } from "@/lib/foods";
 // give); the amount eaten scales them to what is logged.
 const EMPTY_FORM = { name: "", protein_per_100g: "", carbs_per_100g: "", fat_per_100g: "", amount_grams: "" };
 
+// The food search depends on OpenFoodFacts, a free service with its own limits.
+// Its two common failures get a sentence that says so, instead of the generic
+// "too many requests", which reads as if the user did something wrong.
+const SEARCH_ERROR_KEYS = {
+    rate_limited: "form_search_rate_limited",
+    server: "form_search_unavailable",
+};
+
+function searchErrorText(error, t) {
+    const key = error && SEARCH_ERROR_KEYS[error.code];
+    return key ? t(key) : error;
+}
+
 export default function FoodForm({ onSubmit, isLoading }) {
     const { t } = useTranslation();
     const [formData, setFormData] = useState(EMPTY_FORM);
@@ -126,7 +139,10 @@ export default function FoodForm({ onSubmit, isLoading }) {
                                     </span>
                                 </Button>
                             </div>
-                            <InlineError error={searchError} onRetry={typeof searchError === "string" ? undefined : handleAutoSearch} />
+                            <InlineError
+                                error={searchErrorText(searchError, t)}
+                                onRetry={typeof searchError === "string" ? undefined : handleAutoSearch}
+                            />
                             {searchNotFound && <p className="text-sm text-gray-600">{t("form_alert_not_found")}</p>}
                             <p className="text-sm text-gray-500">{t("form_name_hint")}</p>
 
@@ -149,7 +165,12 @@ export default function FoodForm({ onSubmit, isLoading }) {
                                                 onClick={() => selectResult(result)}
                                                 className="w-full text-start px-4 py-3 hover:bg-blue-50 transition-colors border-b last:border-b-0 flex items-center justify-between gap-4"
                                             >
-                                                <span className="font-medium text-gray-800 truncate">{result.name}</span>
+                                                <span className="min-w-0">
+                                                    <span className="block font-medium text-gray-800 truncate">{result.name}</span>
+                                                    <span className="block text-xs text-gray-500">
+                                                        {t(result.source === "library" ? "form_source_library" : "form_source_openfoodfacts")}
+                                                    </span>
+                                                </span>
                                                 <span className="text-xs text-gray-500 whitespace-nowrap shrink-0">
                                                     P {result.protein_per_100g}g · C {result.carbs_per_100g}g · F {result.fat_per_100g}g
                                                 </span>
