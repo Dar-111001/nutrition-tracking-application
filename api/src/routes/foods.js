@@ -1,13 +1,12 @@
 import { Router } from 'express';
 import { sendData, route } from '../lib/respond.js';
-import { requireDate, requireText, requireNumber, pickPresent } from '../lib/validate.js';
+import { requireDate, requireText, requireNumber, optionalNumber, pickPresent } from '../lib/validate.js';
 import { ApiError } from '../lib/apiError.js';
+import { PORTION_GRAMS, kcal } from '../lib/energy.js';
 
 const FOOD = 'food';
 
-// One macro portion = 30 g protein, 30 g carbs or 10 g fat.
-// Computed here so every client gets the same numbers.
-const PORTION_GRAMS = { protein: 30, carbs: 30, fat: 10 };
+// Portions are computed here so every client gets the same numbers.
 const toPortions = (grams, size) => Math.round((grams / size) * 10) / 10;
 
 function withPortions(food) {
@@ -26,6 +25,8 @@ const FIELDS = {
   protein_grams: grams,
   carbs_grams: grams,
   fat_grams: grams,
+  // Only drinks have alcohol, so it may be left out (counts as 0)
+  alcohol_grams: (value, field) => optionalNumber(value, field, { min: 0, max: 5000 }),
   date: requireDate,
 };
 
@@ -39,6 +40,9 @@ const toFood = (record) => ({
   protein_portions: record.protein_portions,
   carbs_portions: record.carbs_portions,
   fat_portions: record.fat_portions,
+  alcohol_grams: record.alcohol_grams || 0,
+  // Worked out from the grams on every read, so it can never go stale
+  kcal: kcal({ protein: record.protein_grams, carbs: record.carbs_grams, fat: record.fat_grams, alcohol: record.alcohol_grams }),
   created: record.created,
 });
 

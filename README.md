@@ -1,6 +1,6 @@
 # Dar Nutrition App
 
-A personal nutrition tracking app built with React + Vite, backed by a self-hosted PocketBase database. Track daily food intake, set macro goals, and manage a personal food library. It runs locally with one `docker compose up`, and the same images deploy to AWS, Google Cloud or Azure with the Terraform in `infrastructure/`.
+A personal nutrition tracking app built with React + Vite, backed by a self-hosted PocketBase database. Track daily calories against a calorie goal, see suggested macros, and manage a personal food library. It runs locally with one `docker compose up`, and the same images deploy to AWS, Google Cloud or Azure with the Terraform in `infrastructure/`.
 
 **Jump to:** [Run it locally](#running-locally-with-docker) · [Deploy to AWS](#deploying-to-aws-ecs-fargate) · [Deploy to Google Cloud](#deploying-to-google-cloud-cloud-run) · [Deploy to Azure](#deploying-to-azure-container-apps)
 
@@ -25,10 +25,11 @@ A personal nutrition tracking app built with React + Vite, backed by a self-host
 
 ## Features
 
-- Daily food journal with macro tracking (protein, carbs, fat)
-- Macro portion system (1 portion = 30g protein / 30g carbs / 10g fat)
-- Food library of 100 built-in basics, named in English, Spanish and Hebrew, plus your own foods, with macros per 100 g
-- Monthly progress tracker
+- Daily food journal that counts calories against a daily calorie goal
+- Protein, carbs and fat as a suggested split only, in portions (1 portion = 30g protein / 30g carbs / 10g fat); left empty, the app suggests one from the calorie goal
+- Calories from the standard factors: 4 kcal per gram of protein or carbs, 9 for fat, 7 for alcohol
+- Food library of 109 built-in foods (100 basics plus an alcohol section), named in English, Spanish and Hebrew, plus your own foods, with values per 100 g. Drinks also show a typical serving (a shot, a glass, a bottle, a pint) that Quick Add can fill in with one tap
+- Monthly tracker: a day is on target when its calories land within 10% of the goal
 - Self-hosted database — your data stays on your machine
 
 ---
@@ -62,21 +63,31 @@ The `food_items` collection holds every food you can pick from, built-in and you
 |---|---|
 | `name` | the fallback name, shown when the current language has none |
 | `name_en`, `name_es`, `name_he` | the name in each language the app ships in |
-| `category` | one of `protein`, `dairy_eggs`, `grains`, `legumes`, `vegetables`, `fruit`, `nuts_seeds`, `fats_oils`, `snacks_sweets`, `drinks`, `other` |
+| `category` | one of `protein`, `dairy_eggs`, `grains`, `legumes`, `vegetables`, `fruit`, `nuts_seeds`, `fats_oils`, `snacks_sweets`, `drinks`, `alcohol`, `other` |
 | `seed_key` | set only on built-in foods, and unique; the API exposes it as `builtin: true` |
 | `protein_per_100g`, `carbs_per_100g`, `fat_per_100g` | grams per 100 g |
+| `alcohol_per_100g` | grams of alcohol per 100 g, 0 for everything but drinks. The API adds `kcal_per_100g` from all four |
+| `serving_unit`, `serving_grams` | a typical serving (`shot`, `glass`, `bottle`, `pint` or `can`) and its weight. Display only: values always stay per 100 g. The API exposes them as `serving: { unit, grams }` or `null` |
 
-`seed/foods.json` holds 100 basics, ten per category, each with its three names.
-`pb_setup.sh` loads them on start, once, like a database migration:
+Two seed files hold the built-in foods, each with its three names:
+
+| File | History name | Foods |
+|---|---|---|
+| `seed/foods.json` | `foods-v1` | 100 basics, ten per category |
+| `seed/foods-v2.json` | `foods-v2` | 9 alcoholic drinks: tequila, vodka, gin, rum (a 40 g shot), lager (a 330 g bottle), ale (a 568 g pint), Aperol (a 60 g shot), Aperol Spritz (a 200 g glass) and mojito (a 250 g glass) |
+
+`pb_setup.sh` loads each one on start, once, like a database migration:
 
 - a food is skipped when its `seed_key`, or any of its names, is already there, so nothing you added is overwritten or duplicated
-- `foods-v1` is written to the `seed_history` collection only after every food loaded, so a start that fails half way simply loads the rest next time
-- once recorded, the seed never runs again, so a built-in food you delete stays deleted
+- the history name is written to the `seed_history` collection only after every food of that file loaded, so a start that fails half way simply loads the rest next time
+- once recorded, that seed never runs again, so a built-in food you delete stays deleted
 
 Because the seed runs in the database container, docker compose and all three
-cloud stacks under `infrastructure/` get the same foods with no extra step. To
-add more later, add a `seed/foods-v2.json` with its own history name rather than
-editing `foods-v1`: an edited file would not be loaded again.
+cloud stacks under `infrastructure/` get the same foods with no extra step. A
+database that already has `foods-v1` gets only the new `foods-v2` drinks. To add
+more later, add a `seed/foods-v3.json` and its line at the end of `pb_setup.sh`
+(and in `seed/check_seed.sh`) rather than editing a file that has shipped: an
+edited file would not be loaded again.
 
 To prove the foods really are in the database, run plain SQL against
 PocketBase's SQLite file (`seed/check_seed.sql`, via `seed/check_seed.sh`):
@@ -85,9 +96,10 @@ PocketBase's SQLite file (`seed/check_seed.sql`, via `seed/check_seed.sh`):
 docker compose exec pocketbase /pb_seed/check_seed.sh   # or: npm run test:db
 ```
 
-It checks that `foods-v1` is recorded, that every seed food is in the library,
-and that each built-in food has all three names and a known category, then
-prints the count per category. CI runs the same check on a fresh database
+For each seed file it checks that its history name is recorded, that every seed
+food is in the library, that each built-in food has all three names and a known
+category, and that drinks kept their serving size, then prints the count per
+category. CI runs the same check on a fresh database
 started with docker compose. A built-in food you deleted on purpose shows up as
 missing.
 
@@ -130,9 +142,9 @@ Every `/api` response body has one of two shapes:
 | `POST /api/auth/login` | `{ email, password }` → `{ token, user }` |
 | `POST /api/auth/refresh` | Fresh token for a still-valid one |
 | `GET /api/foods?date=` or `?from=&to=` | Logged foods for a day or a date range |
-| `POST /api/foods`, `PATCH /api/foods/:id`, `DELETE /api/foods/:id` | Log, edit, delete a food (the API computes the portions) |
+| `POST /api/foods`, `PATCH /api/foods/:id`, `DELETE /api/foods/:id` | Log, edit, delete a food (the API computes the portions and `kcal`; `alcohol_grams` is optional) |
 | `DELETE /api/foods?date=` | Clear a day |
-| `GET /api/goals`, `PUT /api/goals` | Daily macro goals |
+| `GET /api/goals`, `PUT /api/goals` | Daily goals: `calorie_goal` (required, 500 to 10000) and optional suggested `protein_goal`, `carbs_goal`, `fat_goal` in portions (0 means "suggest one") |
 | `GET/POST /api/food-items`, `PATCH/DELETE /api/food-items/:id` | Food library |
 | `POST /api/food-items/import` | `{ items: [...] }`, saves valid rows, lists the failed ones |
 | `GET /api/food-search?q=` | Macros per 100 g: library matches (`source: "library"`), then OpenFoodFacts (`source: "openfoodfacts"`) |
@@ -193,7 +205,7 @@ All routes except login and the health checks need `Authorization: Bearer <token
 ├── .github/workflows/ci.yml      # CI: builds the frontend and every image, no cloud credentials
 ├── Dockerfile                    # Multi-stage: Node build → nginx serve
 ├── Dockerfile.pocketbase         # PocketBase container with auto-setup
-├── seed/                         # The 100 built-in foods (foods.json) and the SQL check that they loaded
+├── seed/                         # The built-in foods (foods.json, foods-v2.json) and the SQL check that they loaded
 ├── sample_data/                  # Example CSV for the food library upload
 ├── pb_setup.sh                   # Creates admin, collections, app login, built-in foods (idempotent)
 ├── docker-compose.yml            # Runs app + api + pocketbase together
@@ -218,7 +230,7 @@ The images are built for `linux/amd64`, the CPU the cloud stacks run on, so what
 First run takes 2–3 minutes (downloads Node, nginx, PocketBase, installs packages, builds). On every start PocketBase automatically:
 - creates the admin account from `PB_ADMIN_EMAIL` / `PB_ADMIN_PASSWORD`
 - creates the `food`, `daily_goals` and `food_items` collections, readable and writable only by signed-in users, and adds any field a newer version introduced
-- loads the 100 built-in foods from `seed/foods.json` into the food library, once (see [The food library](#the-food-library))
+- loads the built-in foods from `seed/foods.json` and `seed/foods-v2.json` into the food library, once each (see [The food library](#the-food-library))
 - creates the app login from `APP_USER_EMAIL` / `APP_USER_PASSWORD` (or the admin pair if those are not set) and turns off public sign-up
 
 | Service | URL |
@@ -265,8 +277,8 @@ Every check CI runs can be run locally with the same command:
 | Compose file is valid | `docker compose config --quiet` | Docker |
 
 `npm run test:db` is `docker compose exec -T pocketbase /pb_seed/check_seed.sh`. It
-waits for the seed to finish, then fails if `foods-v1` is not recorded, if any
-built-in food is missing, or if one lacks a name or category, and prints the
+waits for the seed to finish, then fails if a seed file is not recorded, if any
+built-in food is missing, or if one lacks a name, category or serving size, and prints the
 count per category ([details](#the-food-library)). On a database where you
 deleted built-in foods on purpose, it lists them as missing. To check a fresh
 database, the way CI does:
@@ -318,7 +330,7 @@ The health check answers `200` only when the API and PocketBase are both up (it 
 | `APP_USER_PASSWORD` | `PB_ADMIN_PASSWORD` | Password to sign in to the app. Re-applied on every start, so changing it and restarting changes the password |
 | `PB_PORT` | `8090` | PocketBase port |
 | `PB_DATA_DIR` | `/pb/pb_data` | Where the database lives. Must be a persistent volume |
-| `PB_SEED_FILE` | `/pb_seed/foods.json` | The built-in foods loaded into a fresh database |
+| `PB_SEED_DIR` | `/pb_seed` | Folder with the built-in food files (`foods.json`, `foods-v2.json`) |
 
 Locally these come from `.env` (gitignored, and excluded from image builds). Nothing secret is baked into any image.
 

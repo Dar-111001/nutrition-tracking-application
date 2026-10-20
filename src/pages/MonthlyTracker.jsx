@@ -7,6 +7,7 @@ import { useTranslation } from "react-i18next";
 import { toLocalDateString, parseLocalDate, lastNDays } from "@/lib/dates";
 import InlineError from "@/components/InlineError";
 import LogoSpinner from "@/components/LogoSpinner";
+import { resolveGoals, dayTotals, calorieStatus } from "@/lib/goals";
 
 export default function MonthlyTracker() {
     const { t } = useTranslation();
@@ -32,15 +33,17 @@ export default function MonthlyTracker() {
             return;
         }
 
+        // A day is on target when its calories land within 10% of the calorie goal
+        // (see calorieStatus); the macros are only a suggestion, so they don't count.
         const allFoods = foodsResult.data;
-        const currentGoals = goalsResult.data || { protein_goal: 6, carbs_goal: 6.5, fat_goal: 2 };
+        const { calories: calorieGoal } = resolveGoals(goalsResult.data);
         const processedData = {};
 
         days.forEach(date => {
             const dayFoods = allFoods.filter(food => food.date === date);
-            const dayTotals = calculateDayTotals(dayFoods);
-            const isOnTarget = checkIfOnTarget(dayTotals, currentGoals);
-            processedData[date] = { totals: dayTotals, isOnTarget, foodCount: dayFoods.length };
+            const totals = dayTotals(dayFoods);
+            const status = calorieStatus(totals.kcal, calorieGoal, dayFoods.length);
+            processedData[date] = { totals, status, isOnTarget: status === "on", foodCount: dayFoods.length };
         });
 
         setDailyData(processedData);
@@ -50,19 +53,6 @@ export default function MonthlyTracker() {
         setStats({ green: greenDays, red: redDays, total: 30 });
         setLoad({ status: "ready", error: null });
     };
-
-    const calculateDayTotals = (dayFoods) =>
-        dayFoods.reduce((totals, food) => ({
-            protein: totals.protein + (food.protein_portions || 0),
-            carbs:   totals.carbs   + (food.carbs_portions   || 0),
-            fat:     totals.fat     + (food.fat_portions      || 0),
-        }), { protein: 0, carbs: 0, fat: 0 });
-
-    const checkIfOnTarget = (totals, goals) =>
-        totals.protein + totals.carbs + totals.fat > 0 &&
-        totals.protein >= goals.protein_goal &&
-        totals.carbs   >= goals.carbs_goal   &&
-        totals.fat     >= goals.fat_goal;
 
     const formatDate = (dateString) => {
         if (dateString === toLocalDateString()) return t("monthly_today");
@@ -165,11 +155,11 @@ export default function MonthlyTracker() {
                                         animate={{ opacity: 1, scale: 1 }}
                                         transition={{ delay: index * 0.02 }}
                                         className={`aspect-square rounded-xl border-2 p-3 text-center cursor-pointer hover:scale-105 transition-all duration-200 ${getDayColor(date)}`}
-                                        title={`${formatDate(date)} — ${dayData?.isOnTarget ? t("monthly_achieved") : dayData?.foodCount > 0 ? t("monthly_not_achieved") : t("monthly_no_data")}`}
+                                        title={`${formatDate(date)} — ${dayData?.foodCount > 0 ? `${dayData.totals.kcal} ${t("library_kcal")}, ${t(`monthly_status_${dayData.status}`)}` : t("monthly_no_data")}`}
                                     >
                                         <div className="text-sm font-semibold">{formatDate(date)}</div>
                                         {dayData && dayData.foodCount > 0 && (
-                                            <div className="text-xs mt-1">{dayData.isOnTarget ? "✓" : "✗"}</div>
+                                            <div className="text-xs mt-1 tabular-nums">{dayData.totals.kcal}</div>
                                         )}
                                     </motion.div>
                                 );

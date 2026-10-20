@@ -217,7 +217,7 @@ export default function FoodForm({ onSubmit, isLoading }) {
                             <p className="text-sm text-gray-500">{t("form_amount_hint")}</p>
                         </div>
 
-                        {(eaten.protein_portions > 0 || eaten.carbs_portions > 0 || eaten.fat_portions > 0) && (
+                        {eaten.kcal > 0 && (
                             <motion.div
                                 initial={{ opacity: 0, scale: 0.9 }}
                                 animate={{ opacity: 1, scale: 1 }}
@@ -227,7 +227,11 @@ export default function FoodForm({ onSubmit, isLoading }) {
                                     <Calculator className="w-5 h-5 text-gray-600" />
                                     <span className="font-medium text-gray-700">{t("form_portions_calc")}</span>
                                 </div>
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                    <div className="text-center p-4 bg-indigo-100 rounded-xl">
+                                        <div className="text-2xl font-bold text-indigo-700">{eaten.kcal}</div>
+                                        <div className="text-sm text-indigo-600">{t("library_kcal")}</div>
+                                    </div>
                                     <div className="text-center p-4 bg-emerald-100 rounded-xl">
                                         <div className="text-2xl font-bold text-emerald-700">{eaten.protein_portions}</div>
                                         <div className="text-sm text-emerald-600">{t("form_protein_portions")}</div>

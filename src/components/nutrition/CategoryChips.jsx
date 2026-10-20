@@ -1,5 +1,5 @@
 import React from "react";
-import { Drumstick, Egg, Wheat, Bean, Carrot, Apple, Nut, Droplet, Cookie, CupSoda, Utensils, LayoutGrid } from "lucide-react";
+import { Drumstick, Egg, Wheat, Bean, Carrot, Apple, Nut, Droplet, Cookie, CupSoda, Martini, Utensils, LayoutGrid } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { CATEGORIES } from "@/lib/foods";
 import { cn } from "@/lib/utils";
@@ -15,6 +15,7 @@ export const CATEGORY_ICONS = {
     fats_oils: Droplet,
     snacks_sweets: Cookie,
     drinks: CupSoda,
+    alcohol: Martini,
     other: Utensils,
 };
 

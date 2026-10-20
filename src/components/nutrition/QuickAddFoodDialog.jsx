@@ -10,7 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Calculator, Search, Check } from "lucide-react";
+import { Calculator, Search, Check, Wine } from "lucide-react";
 import { FoodItem } from "@/api/entities";
 import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
@@ -47,25 +47,23 @@ export default function QuickAddFoodDialog({ isOpen, onOpenChange, onSubmit, isL
         if (isOpen) loadLibrary();
     }, [isOpen]);
 
+    const selectedItem = foodItems.find((item) => item.id === selectedFoodItemId);
+
     const searched = useMemo(() => foodItems.filter((item) => matchesSearch(item, search)), [foodItems, search]);
     const visible = useMemo(() => sortByName(
         category === "all" ? searched : searched.filter((item) => item.category === category), lang,
     ), [searched, category, lang]);
 
     useEffect(() => {
-        if (selectedFoodItemId && gramsConsumed > 0) {
-            const selectedItem = foodItems.find(item => item.id === selectedFoodItemId);
-            if (selectedItem) {
-                setCalculatedMacros(macrosForAmount(selectedItem, parseFloat(gramsConsumed)));
-            }
+        if (selectedItem && gramsConsumed > 0) {
+            setCalculatedMacros(macrosForAmount(selectedItem, parseFloat(gramsConsumed)));
         } else {
             setCalculatedMacros(null);
         }
-    }, [selectedFoodItemId, gramsConsumed, foodItems]);
+    }, [selectedItem, gramsConsumed]);
 
     const handleSubmit = async () => {
-        if (selectedFoodItemId && gramsConsumed > 0 && calculatedMacros) {
-            const selectedItem = foodItems.find(item => item.id === selectedFoodItemId);
+        if (selectedItem && gramsConsumed > 0 && calculatedMacros) {
             setSubmitError(null);
             const result = await onSubmit({
                 name: `${foodName(selectedItem, lang)} (${gramsConsumed}g)`,
@@ -134,6 +132,11 @@ export default function QuickAddFoodDialog({ isOpen, onOpenChange, onSubmit, isL
                                                     )}
                                                 >
                                                     <span className="flex-1 truncate">{foodName(item, lang)}</span>
+                                                    {item.serving && (
+                                                        <span className={cn("text-xs", selected ? "text-white/70" : "text-gray-400")}>
+                                                            {t("serving_short", { unit: t(`serving_${item.serving.unit}`), grams: item.serving.grams })}
+                                                        </span>
+                                                    )}
                                                     <span className={cn("text-xs", selected ? "text-white/70" : "text-gray-400")}>
                                                         {kcalPer100g(item)} {t("library_kcal")}
                                                     </span>
@@ -156,6 +159,24 @@ export default function QuickAddFoodDialog({ isOpen, onOpenChange, onSubmit, isL
                             value={gramsConsumed}
                             onChange={(e) => setGramsConsumed(e.target.value)}
                         />
+                        {/* Drinks know their typical serving: one tap fills in a shot, a glass or a pint */}
+                        {selectedItem?.serving && (
+                            <div className="flex flex-wrap gap-2">
+                                {[1, 2, 3].map((count) => (
+                                    <Button
+                                        key={count}
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        className="rounded-full"
+                                        onClick={() => setGramsConsumed(String(count * selectedItem.serving.grams))}
+                                    >
+                                        <Wine className="w-3.5 h-3.5 me-1.5" aria-hidden="true" />
+                                        {t("serving_count", { count, unit: t(`serving_${selectedItem.serving.unit}`), grams: count * selectedItem.serving.grams })}
+                                    </Button>
+                                ))}
+                            </div>
+                        )}
                     </div>
 
                     {calculatedMacros && (
@@ -168,7 +189,11 @@ export default function QuickAddFoodDialog({ isOpen, onOpenChange, onSubmit, isL
                                 <Calculator className="w-5 h-5 text-gray-600" />
                                 <span className="font-medium text-gray-700">{t("quick_summary")}</span>
                             </div>
-                            <div className="grid grid-cols-3 gap-2">
+                            <div className="grid grid-cols-4 gap-2">
+                                <div className="text-center p-2 bg-indigo-100 rounded-xl">
+                                    <div className="text-lg font-bold text-indigo-700">{calculatedMacros.kcal}</div>
+                                    <div className="text-xs text-indigo-600">{t("library_kcal")}</div>
+                                </div>
                                 <div className="text-center p-2 bg-emerald-100 rounded-xl">
                                     <div className="text-lg font-bold text-emerald-700">{calculatedMacros.protein_portions}</div>
                                     <div className="text-xs text-emerald-600">{t("quick_protein")}</div>

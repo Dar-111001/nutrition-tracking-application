@@ -111,8 +111,11 @@ export default function FoodList({ foods, onDeleteFood, onClearAll, onAddFood, i
                                         transition={{ delay: index * 0.05 }}
                                         className="bg-gradient-to-r from-gray-50 to-white rounded-2xl p-6 border border-gray-100 hover:shadow-lg transition-all duration-300"
                                     >
-                                        <div className="flex items-start justify-between mb-4">
-                                            <h3 className="text-xl font-semibold text-gray-800">{food.name}</h3>
+                                        <div className="flex items-start justify-between gap-3 mb-4">
+                                            <h3 className="text-xl font-semibold text-gray-800 flex-1">{food.name}</h3>
+                                            <span className="shrink-0 rounded-full bg-indigo-50 px-3 py-1 text-sm font-semibold text-indigo-700 tabular-nums">
+                                                {food.kcal} {t("library_kcal")}
+                                            </span>
                                             <Button
                                                 variant="ghost"
                                                 size="icon"

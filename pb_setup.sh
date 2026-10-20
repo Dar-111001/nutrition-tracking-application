@@ -3,7 +3,7 @@
 #
 # 1. Starts PocketBase (all data in $PB_DATA_DIR: a docker volume locally, EFS on ECS).
 # 2. Makes sure the admin account, the app's collections, the app login and the
-#    built-in foods (seed/foods.json) exist.
+#    built-in foods (seed/foods.json, seed/foods-v2.json) exist.
 #    Every step is idempotent, so it is safe on every start and every redeploy.
 #
 # Env vars:
@@ -11,7 +11,7 @@
 #   APP_USER_EMAIL, APP_USER_PASSWORD   the app's login; default to the admin pair
 #   PB_PORT                             default 8090
 #   PB_DATA_DIR                         default /pb/pb_data
-#   PB_SEED_FILE                        built-in foods, default /pb_seed/foods.json
+#   PB_SEED_DIR                         built-in food files, default /pb_seed
 
 ADMIN_EMAIL="${PB_ADMIN_EMAIL}"
 ADMIN_PASSWORD="${PB_ADMIN_PASSWORD}"
@@ -120,10 +120,13 @@ ensure_collection food '[
   {"name": "protein_portions", "type": "number"},
   {"name": "carbs_portions",   "type": "number"},
   {"name": "fat_portions",     "type": "number"},
+  {"name": "alcohol_grams",    "type": "number"},
   {"name": "date",             "type": "text"}
 ]'
 
+# The goal is calories; the macro goals (portions) are only a suggested split.
 ensure_collection daily_goals '[
+  {"name": "calorie_goal", "type": "number"},
   {"name": "protein_goal", "type": "number"},
   {"name": "carbs_goal",   "type": "number"},
   {"name": "fat_goal",     "type": "number"}
@@ -140,7 +143,10 @@ ensure_collection food_items '[
   {"name": "seed_key",         "type": "text"},
   {"name": "protein_per_100g", "type": "number"},
   {"name": "carbs_per_100g",   "type": "number"},
-  {"name": "fat_per_100g",     "type": "number"}
+  {"name": "fat_per_100g",     "type": "number"},
+  {"name": "alcohol_per_100g", "type": "number"},
+  {"name": "serving_unit",     "type": "text"},
+  {"name": "serving_grams",    "type": "number"}
 ]' '[
   "CREATE UNIQUE INDEX `idx_food_items_seed_key` ON `food_items` (`seed_key`) WHERE `seed_key` != \"\""
 ]'
@@ -172,17 +178,20 @@ fi
 report "App login ready for ${APP_EMAIL}"
 
 # ---- 5. Built-in foods ----
-# Loads seed/foods.json into the food library, once, like a database migration:
+# Loads each seed file into the food library, once, like a database migration:
 #  - a food is skipped when its seed_key, or any of its names, is already in the
 #    library, so foods you added or edited are never touched or duplicated
-#  - "foods-v1" is written to seed_history only when every food loaded; a start
-#    that fails half way simply loads the rest next time
-#  - once recorded, the seed never runs again, so a built-in food you delete
-#    stays deleted. A future foods-v2 file would add only its new foods.
-SEED_FILE="${PB_SEED_FILE:-/pb_seed/foods.json}"
-SEED_NAME=foods-v1
+#  - the seed's name is written to seed_history only when every food loaded; a
+#    start that fails half way simply loads the rest next time
+#  - once recorded, that seed never runs again, so a built-in food you delete
+#    stays deleted. To add foods, add a new file (and line below); never edit
+#    a seed that has already shipped, it would not be loaded again.
+SEED_DIR="${PB_SEED_DIR:-/pb_seed}"
 
+# seed_foods NAME FILE
 seed_foods() {
+  SEED_NAME=$1
+  SEED_FILE=$2
   FILTER=$(jq -rn --arg n "$SEED_NAME" '"name=\"\($n)\"" | @uri')
   api GET "/api/collections/seed_history/records?perPage=1&filter=${FILTER}"
   if [ "$STATUS" != "200" ]; then report "Read seed history"; return; fi
@@ -230,7 +239,8 @@ seed_foods() {
     report "Recorded ${SEED_NAME} in seed history"
   fi
 }
-seed_foods
+seed_foods foods-v1 "${SEED_DIR}/foods.json"     # the 100 basics
+seed_foods foods-v2 "${SEED_DIR}/foods-v2.json"  # alcoholic drinks
 
 echo "PocketBase setup complete."
 wait $PB_PID

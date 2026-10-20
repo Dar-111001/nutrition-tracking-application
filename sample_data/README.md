@@ -14,4 +14,4 @@ Columns:
 Columns may be in any order. Rows that fail are listed one by one in the upload
 dialog, and the valid rows are still imported.
 
-The 100 foods the database loads on its own live in `../seed/foods.json`.
+The built-in foods the database loads on its own live in `../seed/foods.json` and `../seed/foods-v2.json` (the alcohol section).
