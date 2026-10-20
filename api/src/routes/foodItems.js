@@ -1,7 +1,8 @@
 import { Router } from 'express';
 import { sendData, route } from '../lib/respond.js';
-import { requireText, requireNumber } from '../lib/validate.js';
+import { requireText, requireNumber, optionalNumber } from '../lib/validate.js';
 import { ApiError } from '../lib/apiError.js';
+import { kcal } from '../lib/energy.js';
 
 const ITEMS = 'food_items';
 const MAX_IMPORT = 1000;
@@ -14,14 +15,20 @@ export const LANGUAGES = ['en', 'es', 'he'];
 // same keys; foods saved without a category land in "other".
 export const CATEGORIES = [
   'protein', 'dairy_eggs', 'grains', 'legumes', 'vegetables',
-  'fruit', 'nuts_seeds', 'fats_oils', 'snacks_sweets', 'drinks', 'other',
+  'fruit', 'nuts_seeds', 'fats_oils', 'snacks_sweets', 'drinks', 'alcohol', 'other',
 ];
+
+// A typical serving, shown next to a food ("1 shot ≈ 40 g"). Values always
+// stay per 100 g; the serving is only a hint for how much to log.
+export const SERVING_UNITS = ['shot', 'glass', 'bottle', 'pint', 'can'];
 
 const per100g = (value, field) => requireNumber(value, field, { min: 0, max: 100 });
 const MACROS = {
   protein_per_100g: per100g,
   carbs_per_100g: per100g,
   fat_per_100g: per100g,
+  // Only drinks have alcohol, so it may be left out (counts as 0)
+  alcohol_per_100g: (value, field) => optionalNumber(value, field, { min: 0, max: 100 }),
 };
 
 const optionalText = (value, field) =>
@@ -33,6 +40,15 @@ function readCategory(value) {
     throw new ApiError('validation', `category must be one of: ${CATEGORIES.join(', ')}.`, { field: 'category' });
   }
   return value;
+}
+
+// { serving: { unit: "shot", grams: 40 } } -> { serving_unit, serving_grams }; null clears it
+function readServing(serving) {
+  if (serving === null || serving === '') return { serving_unit: '', serving_grams: 0 };
+  if (typeof serving !== 'object' || Array.isArray(serving) || !SERVING_UNITS.includes(serving.unit)) {
+    throw new ApiError('validation', `serving must be null or like { "unit": "shot", "grams": 40 }, with unit one of: ${SERVING_UNITS.join(', ')}.`, { field: 'serving' });
+  }
+  return { serving_unit: serving.unit, serving_grams: requireNumber(serving.grams, 'serving.grams', { min: 1, max: 2000 }) };
 }
 
 // { names: { en, es, he } } -> { name_en, name_es, name_he }; missing languages become ''
@@ -57,6 +73,7 @@ function validateItem(input) {
   const names = readNames(body.names ?? {});
   const item = { ...names, name: fallbackName(body, names), category: readCategory(body.category) };
   for (const [field, validate] of Object.entries(MACROS)) item[field] = validate(body[field], field);
+  if (body.serving !== undefined) Object.assign(item, readServing(body.serving));
   return item;
 }
 
@@ -68,11 +85,12 @@ function validateChanges(input) {
   if (body.names !== undefined) Object.assign(changes, readNames(body.names));
   if (body.names !== undefined || body.name !== undefined) changes.name = fallbackName(body, changes);
   if (body.category !== undefined) changes.category = readCategory(body.category);
+  if (body.serving !== undefined) Object.assign(changes, readServing(body.serving));
   for (const [field, validate] of Object.entries(MACROS)) {
     if (body[field] !== undefined) changes[field] = validate(body[field], field);
   }
   if (Object.keys(changes).length === 0) {
-    throw new ApiError('validation', `Send at least one of: names, name, category, ${Object.keys(MACROS).join(', ')}.`);
+    throw new ApiError('validation', `Send at least one of: names, name, category, serving, ${Object.keys(MACROS).join(', ')}.`);
   }
   return changes;
 }
@@ -86,6 +104,13 @@ const toItem = (record) => ({
   protein_per_100g: record.protein_per_100g,
   carbs_per_100g: record.carbs_per_100g,
   fat_per_100g: record.fat_per_100g,
+  alcohol_per_100g: record.alcohol_per_100g || 0,
+  kcal_per_100g: kcal({
+    protein: record.protein_per_100g, carbs: record.carbs_per_100g, fat: record.fat_per_100g, alcohol: record.alcohol_per_100g,
+  }),
+  serving: SERVING_UNITS.includes(record.serving_unit) && record.serving_grams > 0
+    ? { unit: record.serving_unit, grams: record.serving_grams }
+    : null,
 });
 
 // The food library: foods with their macros per 100 g.

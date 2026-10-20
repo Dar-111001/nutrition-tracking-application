@@ -1,7 +1,8 @@
 -- Checks, straight against PocketBase's SQLite file, that the built-in foods
--- from seed/foods.json really are in the database. Run by seed/check_seed.sh.
--- Each query lists problems; no rows means that check passed.
--- @seed_file is the path to foods.json (set with .parameter by the script).
+-- of one seed file really are in the database. Run by seed/check_seed.sh, once
+-- per seed file. Each query lists problems; no rows means that check passed.
+-- @seed_file is the path to the file and @seed_name its seed_history name
+-- (set with .parameter by the script).
 
 .bail on
 .headers off
@@ -16,8 +17,8 @@ SELECT value ->> 'seed_key' AS seed_key,
 FROM json_each(readfile(@seed_file));
 
 -- 1. The load was recorded, so it finished without a single failed food
-SELECT 'PROBLEM: foods-v1 is not recorded in seed_history, so the load did not finish'
-WHERE NOT EXISTS (SELECT 1 FROM seed_history WHERE name = 'foods-v1');
+SELECT 'PROBLEM: ' || @seed_name || ' is not recorded in seed_history, so the load did not finish'
+WHERE NOT EXISTS (SELECT 1 FROM seed_history WHERE name = @seed_name);
 
 -- 2. Every seed food is in the library: by its seed_key, or (like pb_setup.sh)
 --    by a food you already had with the same name
@@ -36,10 +37,18 @@ FROM food_items
 WHERE seed_key != ''
   AND (name_en = '' OR name_es = '' OR name_he = ''
        OR category NOT IN ('protein', 'dairy_eggs', 'grains', 'legumes', 'vegetables',
-                           'fruit', 'nuts_seeds', 'fats_oils', 'snacks_sweets', 'drinks'));
+                           'fruit', 'nuts_seeds', 'fats_oils', 'snacks_sweets', 'drinks', 'alcohol'));
 
--- Summary: built-in foods per category
-SELECT 'built-in ' || category || ': ' || COUNT(*)
-FROM food_items WHERE seed_key != '' GROUP BY category ORDER BY category;
-SELECT 'built-in total: ' || COUNT(*) || ' of ' || (SELECT COUNT(*) FROM seed) || ' in the seed file'
-FROM food_items WHERE seed_key != '';
+-- 4. Foods that came with a typical serving (drinks) still have it
+SELECT 'PROBLEM: built-in food ' || f.seed_key || ' has no serving size'
+FROM json_each(readfile(@seed_file)) j
+JOIN food_items f ON f.seed_key = j.value ->> 'seed_key'
+WHERE (j.value ->> 'serving_grams') IS NOT NULL
+  AND (f.serving_grams IS NULL OR f.serving_grams <= 0 OR f.serving_unit IS NULL OR f.serving_unit = '');
+
+-- Summary: this file's built-in foods per category
+SELECT @seed_name || ' ' || f.category || ': ' || COUNT(*)
+FROM food_items f JOIN seed s ON s.seed_key = f.seed_key
+GROUP BY f.category ORDER BY f.category;
+SELECT @seed_name || ' total: ' || COUNT(*) || ' of ' || (SELECT COUNT(*) FROM seed) || ' in the seed file'
+FROM food_items f JOIN seed s ON s.seed_key = f.seed_key;

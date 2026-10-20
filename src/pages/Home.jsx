@@ -14,6 +14,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toLocalDateString } from "@/lib/dates";
+import { DEFAULT_CALORIE_GOAL, suggestedPortions } from "@/lib/goals";
 import InlineError from "@/components/InlineError";
 import LogoSpinner from "@/components/LogoSpinner";
 import ConfirmDialog from "@/components/ConfirmDialog";
@@ -22,16 +23,20 @@ import FoodForm from "../components/nutrition/FoodForm";
 import DailyProgress from "../components/nutrition/DailyProgress";
 import FoodList from "../components/nutrition/FoodList";
 
-const DEFAULT_GOALS = { protein_goal: 6, carbs_goal: 6.5, fat_goal: 2 };
-const GOAL_FIELDS = [
-    { field: "protein_goal", label: "home_protein_portions" },
-    { field: "carbs_goal",   label: "home_carbs_portions" },
-    { field: "fat_goal",     label: "home_fat_portions" },
+// The calorie goal is required; the macro portions are an optional suggestion
+// (left empty, the app suggests a split from the calorie goal).
+const MACRO_FIELDS = [
+    { field: "protein_goal", macro: "protein", label: "home_protein_portions" },
+    { field: "carbs_goal",   macro: "carbs",   label: "home_carbs_portions" },
+    { field: "fat_goal",     macro: "fat",     label: "home_fat_portions" },
 ];
 
 // Goals are edited as strings so an empty field stays empty instead of becoming NaN.
-const goalsToForm = (goals) =>
-    Object.fromEntries(GOAL_FIELDS.map(({ field }) => [field, String(goals[field] ?? "")]));
+// A macro of 0 means "no suggestion of my own", so it shows as empty.
+const goalsToForm = (goals) => ({
+    calorie_goal: String(goals?.calorie_goal || DEFAULT_CALORIE_GOAL),
+    ...Object.fromEntries(MACRO_FIELDS.map(({ field }) => [field, goals?.[field] ? String(goals[field]) : ""])),
+});
 
 export default function Home() {
     const { t } = useTranslation();
@@ -41,7 +46,7 @@ export default function Home() {
     const [isAdding, setIsAdding] = useState(false);
 
     const [showGoalsDialog, setShowGoalsDialog] = useState(false);
-    const [goalsForm, setGoalsForm] = useState(goalsToForm(DEFAULT_GOALS));
+    const [goalsForm, setGoalsForm] = useState(goalsToForm(null));
     const [goalsError, setGoalsError] = useState(null);
     const [isSavingGoals, setIsSavingGoals] = useState(false);
 
@@ -101,18 +106,23 @@ export default function Home() {
 
     const openGoalsDialog = (open) => {
         if (open) {
-            setGoalsForm(goalsToForm(goals || DEFAULT_GOALS));
+            setGoalsForm(goalsToForm(goals));
             setGoalsError(null);
         }
         setShowGoalsDialog(open);
     };
 
     const handleSaveGoals = async () => {
-        const values = {};
-        for (const { field } of GOAL_FIELDS) {
+        const calories = Number(goalsForm.calorie_goal.trim());
+        if (goalsForm.calorie_goal.trim() === "" || !Number.isFinite(calories) || calories < 500 || calories > 10000) {
+            setGoalsError(t("goals_calories_invalid"));
+            return;
+        }
+        const values = { calorie_goal: calories };
+        for (const { field } of MACRO_FIELDS) {
             const raw = goalsForm[field].trim();
-            const value = Number(raw);
-            if (raw === "" || !Number.isFinite(value) || value < 0) {
+            const value = raw === "" ? 0 : Number(raw);
+            if (!Number.isFinite(value) || value < 0) {
                 setGoalsError(t("goals_invalid"));
                 return;
             }
@@ -163,21 +173,42 @@ export default function Home() {
                                     className="space-y-4"
                                     onSubmit={(e) => { e.preventDefault(); handleSaveGoals(); }}
                                 >
-                                    {GOAL_FIELDS.map(({ field, label }) => (
-                                        <div key={field}>
-                                            <Label htmlFor={field}>{t(label)}</Label>
-                                            <Input
-                                                id={field}
-                                                type="number"
-                                                inputMode="decimal"
-                                                min="0"
-                                                step="0.1"
-                                                value={goalsForm[field]}
-                                                onChange={(e) => setGoalsForm({ ...goalsForm, [field]: e.target.value })}
-                                                className="text-center"
-                                            />
+                                    <div>
+                                        <Label htmlFor="calorie_goal">{t("home_calorie_goal")}</Label>
+                                        <Input
+                                            id="calorie_goal"
+                                            type="number"
+                                            inputMode="numeric"
+                                            min="500"
+                                            max="10000"
+                                            step="50"
+                                            value={goalsForm.calorie_goal}
+                                            onChange={(e) => setGoalsForm({ ...goalsForm, calorie_goal: e.target.value })}
+                                            className="text-center text-lg font-semibold"
+                                        />
+                                    </div>
+                                    <fieldset className="rounded-xl border border-gray-200 p-4 space-y-3">
+                                        <legend className="px-1 text-sm font-medium text-gray-700">{t("home_suggested_split")}</legend>
+                                        <p className="text-xs text-gray-500">{t("home_suggested_split_hint")}</p>
+                                        <div className="grid grid-cols-3 gap-3">
+                                            {MACRO_FIELDS.map(({ field, macro, label }) => (
+                                                <div key={field}>
+                                                    <Label htmlFor={field} className="text-xs">{t(label)}</Label>
+                                                    <Input
+                                                        id={field}
+                                                        type="number"
+                                                        inputMode="decimal"
+                                                        min="0"
+                                                        step="0.1"
+                                                        value={goalsForm[field]}
+                                                        placeholder={String(suggestedPortions(Number(goalsForm.calorie_goal) || DEFAULT_CALORIE_GOAL)[macro])}
+                                                        onChange={(e) => setGoalsForm({ ...goalsForm, [field]: e.target.value })}
+                                                        className="text-center"
+                                                    />
+                                                </div>
+                                            ))}
                                         </div>
-                                    ))}
+                                    </fieldset>
                                     <div>
                                         <Button type="submit" className="w-full" disabled={isSavingGoals}>
                                             {isSavingGoals && <LogoSpinner size="sm" inline className="me-2" />}
@@ -201,6 +232,10 @@ export default function Home() {
                                     <DialogTitle>{t("home_macro_title")}</DialogTitle>
                                 </DialogHeader>
                                 <div className="space-y-4">
+                                    <div className="bg-indigo-50 p-4 rounded-xl">
+                                        <h3 className="font-semibold text-indigo-700 mb-2">{t("home_calories_title")}</h3>
+                                        <p className="text-indigo-600">{t("home_calories_desc")}</p>
+                                    </div>
                                     <div className="bg-emerald-50 p-4 rounded-xl">
                                         <h3 className="font-semibold text-emerald-700 mb-2">{t("home_protein_portion_title")}</h3>
                                         <p className="text-emerald-600">{t("home_protein_portion_desc")}</p>

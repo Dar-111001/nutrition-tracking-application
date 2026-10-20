@@ -18,9 +18,12 @@ import {
     CATEGORIES, NAME_LANGUAGES, foodName, kcalPer100g, matchesSearch, sortByName, countByCategory, groupByCategory,
 } from "@/lib/foods";
 
-const NUMBER_FIELDS = ["protein_per_100g", "carbs_per_100g", "fat_per_100g"];
+const NUMBER_FIELDS = ["protein_per_100g", "carbs_per_100g", "fat_per_100g", "alcohol_per_100g"];
 const EMPTY_NAMES = { en: "", es: "", he: "" };
-const EMPTY_ITEM = { id: null, names: EMPTY_NAMES, category: "other", protein_per_100g: "", carbs_per_100g: "", fat_per_100g: "" };
+const EMPTY_ITEM = {
+    id: null, names: EMPTY_NAMES, category: "other",
+    protein_per_100g: "", carbs_per_100g: "", fat_per_100g: "", alcohol_per_100g: "",
+};
 
 export default function FoodLibrary() {
     const { t, i18n } = useTranslation();
@@ -295,6 +298,9 @@ export default function FoodLibrary() {
                                                     {t(`category_${key}`)}
                                                     <span className="text-sm font-normal text-gray-400">{items.length}</span>
                                                 </h2>
+                                                {key === "alcohol" && (
+                                                    <p className="-mt-1 mb-3 text-sm text-gray-500">{t("category_alcohol_hint")}</p>
+                                                )}
                                                 <ul className="divide-y divide-gray-100 rounded-2xl border border-gray-100 bg-white/70">
                                                     {items.map((item) => (
                                                         <FoodRow
@@ -364,6 +370,15 @@ export default function FoodLibrary() {
                                     <Input id="fat" type="number" inputMode="decimal" min="0" step="0.1" value={currentItem.fat_per_100g} onChange={(e) => setCurrentItem({ ...currentItem, fat_per_100g: e.target.value })} />
                                 </div>
                             </div>
+                            <div className="grid grid-cols-[1fr_auto] items-end gap-3">
+                                <div className="space-y-2">
+                                    <Label htmlFor="alcohol">{t("library_alcohol_label")}</Label>
+                                    <Input id="alcohol" type="number" inputMode="decimal" min="0" step="0.1" placeholder="0" value={currentItem.alcohol_per_100g} onChange={(e) => setCurrentItem({ ...currentItem, alcohol_per_100g: e.target.value })} />
+                                </div>
+                                <p className="pb-2 text-sm text-gray-500 tabular-nums">
+                                    {kcalPer100g(Object.fromEntries(NUMBER_FIELDS.map((f) => [f, currentItem[f]])))} {t("library_kcal")} / 100 g
+                                </p>
+                            </div>
                         </div>
                         <DialogFooter className="flex-col sm:flex-col">
                             <Button onClick={handleSave} className="w-full" disabled={isSaving}>
@@ -407,11 +422,19 @@ function FoodRow({ item, lang, onEdit, onDelete }) {
                     </span>
                 </div>
                 {otherNames.length > 0 && <p className="text-xs text-gray-400 truncate">{otherNames.join(" · ")}</p>}
+                {item.serving && (
+                    <p className="text-xs text-gray-500">
+                        {t("serving_line", { unit: t(`serving_${item.serving.unit}`), grams: item.serving.grams, kcal: Math.round((kcalPer100g(item) * item.serving.grams) / 100) })}
+                    </p>
+                )}
             </div>
-            <div className="flex items-center gap-2 text-xs" aria-label={t("library_per_100g")}>
+            <div className="flex flex-wrap items-center gap-2 text-xs" aria-label={t("library_per_100g")}>
                 <span className="rounded-lg bg-emerald-50 px-2 py-1 text-emerald-700">{t("quick_protein")} {item.protein_per_100g}g</span>
                 <span className="rounded-lg bg-amber-50 px-2 py-1 text-amber-700">{t("quick_carbs")} {item.carbs_per_100g}g</span>
                 <span className="rounded-lg bg-orange-50 px-2 py-1 text-orange-700">{t("quick_fat")} {item.fat_per_100g}g</span>
+                {item.alcohol_per_100g > 0 && (
+                    <span className="rounded-lg bg-purple-50 px-2 py-1 text-purple-700">{t("library_alcohol_short")} {item.alcohol_per_100g}g</span>
+                )}
                 <span className="w-16 text-end text-gray-500">{kcalPer100g(item)} {t("library_kcal")}</span>
             </div>
             <div className="flex gap-1">

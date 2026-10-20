@@ -1,48 +1,30 @@
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Target, TrendingUp } from "lucide-react";
+import { Target, Flame, Lightbulb } from "lucide-react";
 import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
+import { resolveGoals, dayTotals, calorieStatus } from "@/lib/goals";
 
+const round1 = (n) => Math.round(n * 10) / 10;
+
+const MACROS = [
+    { key: "protein", label: "progress_protein", bgColor: "bg-emerald-50", textColor: "text-emerald-700" },
+    { key: "carbs",   label: "progress_carbs",   bgColor: "bg-amber-50",   textColor: "text-amber-700" },
+    { key: "fat",     label: "progress_fat",     bgColor: "bg-orange-50",  textColor: "text-orange-700" },
+];
+
+// Ring colour per calorie status (see calorieStatus in lib/goals.js)
+const RING_COLORS = { empty: "#c7d2fe", under: "#6366f1", on: "#10b981", over: "#ef4444" };
+
+// The day at a glance: calories against the calorie goal (the goal), then
+// protein, carbs and fat against their suggested portions (only a guide).
 export default function DailyProgress({ todayFoods, goals }) {
     const { t } = useTranslation();
-
-    const calculateTotalPortions = () => {
-        if (!todayFoods || todayFoods.length === 0) return { protein: 0, carbs: 0, fat: 0 };
-        return todayFoods.reduce((totals, food) => ({
-            protein: totals.protein + (food.protein_portions || 0),
-            carbs:   totals.carbs   + (food.carbs_portions   || 0),
-            fat:     totals.fat     + (food.fat_portions      || 0),
-        }), { protein: 0, carbs: 0, fat: 0 });
-    };
-
-    const totals       = calculateTotalPortions();
-    const currentGoals = goals || { protein_goal: 6, carbs_goal: 6.5, fat_goal: 2 };
-
-    const progressData = [
-        {
-            name: t("progress_protein"),
-            current: Math.round(totals.protein * 10) / 10,
-            goal: currentGoals.protein_goal,
-            bgColor: "bg-emerald-100",
-            textColor: "text-emerald-700",
-        },
-        {
-            name: t("progress_carbs"),
-            current: Math.round(totals.carbs * 10) / 10,
-            goal: currentGoals.carbs_goal,
-            bgColor: "bg-amber-100",
-            textColor: "text-amber-700",
-        },
-        {
-            name: t("progress_fat"),
-            current: Math.round(totals.fat * 10) / 10,
-            goal: currentGoals.fat_goal,
-            bgColor: "bg-orange-100",
-            textColor: "text-orange-700",
-        },
-    ];
+    const totals = dayTotals(todayFoods);
+    const { calories: calorieGoal, macros } = resolveGoals(goals);
+    const status = calorieStatus(totals.kcal, calorieGoal, todayFoods?.length);
+    const left = calorieGoal - totals.kcal;
 
     return (
         <motion.div
@@ -58,46 +40,85 @@ export default function DailyProgress({ todayFoods, goals }) {
                     </CardTitle>
                 </CardHeader>
                 <CardContent className="p-8">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                        {progressData.map((item, index) => {
-                            const percentage = Math.min((item.current / item.goal) * 100, 100);
-                            const remaining  = Math.max(item.goal - item.current, 0);
-                            return (
-                                <motion.div
-                                    key={item.name}
-                                    initial={{ opacity: 0, y: 20 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    transition={{ delay: index * 0.1 }}
-                                    className={`${item.bgColor} rounded-2xl p-6 space-y-4`}
-                                >
-                                    <div className="flex items-center justify-between">
-                                        <span className={`text-lg font-semibold ${item.textColor}`}>{item.name}</span>
-                                        <TrendingUp className={`w-5 h-5 ${item.textColor}`} />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <div className="flex justify-between items-center">
-                                            <span className={`text-3xl font-bold ${item.textColor}`}>{item.current}</span>
-                                            <span className={`text-lg ${item.textColor} opacity-75`}>/ {item.goal}</span>
-                                        </div>
-                                        <Progress value={percentage} className="h-3 bg-white/50" />
-                                        <div className="text-center">
-                                            {remaining > 0 ? (
-                                                <span className={`text-sm ${item.textColor} opacity-75`}>
-                                                    {t("progress_remaining", { count: Math.round(remaining * 10) / 10 })}
+                    <div className="grid grid-cols-1 lg:grid-cols-[auto_1fr] gap-8 items-center">
+                        <CalorieRing eaten={totals.kcal} goal={calorieGoal} color={RING_COLORS[status]}>
+                            <Flame className="w-6 h-6 text-orange-500 mb-1" aria-hidden="true" />
+                            <span className="text-4xl font-bold text-gray-900 tabular-nums">{totals.kcal}</span>
+                            <span className="text-sm text-gray-500">{t("progress_kcal_of", { goal: calorieGoal })}</span>
+                            <span className={`mt-2 text-sm font-medium ${status === "over" ? "text-red-600" : status === "on" ? "text-emerald-600" : "text-indigo-600"}`}>
+                                {left >= 0
+                                    ? t("progress_kcal_left", { count: left })
+                                    : t("progress_kcal_over", { count: -left })}
+                            </span>
+                        </CalorieRing>
+
+                        <div>
+                            <div className="flex items-center gap-2 mb-1 text-gray-700">
+                                <Lightbulb className="w-4 h-4 text-amber-500" aria-hidden="true" />
+                                <span className="font-medium">{t("progress_suggested_title")}</span>
+                            </div>
+                            <p className="text-sm text-gray-500 mb-4">{t("progress_suggested_hint")}</p>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                {MACROS.map(({ key, label, bgColor, textColor }, index) => {
+                                    const current = round1(totals[key]);
+                                    const suggested = macros[key].portions;
+                                    return (
+                                        <motion.div
+                                            key={key}
+                                            initial={{ opacity: 0, y: 20 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            transition={{ delay: index * 0.1 }}
+                                            className={`${bgColor} rounded-2xl p-4 space-y-2`}
+                                        >
+                                            <div className={`text-sm font-semibold ${textColor}`}>{t(label)}</div>
+                                            <div className="flex items-baseline justify-between">
+                                                <span className={`text-2xl font-bold ${textColor} tabular-nums`}>{current}</span>
+                                                <span className={`text-sm ${textColor} opacity-75`}>
+                                                    {t("progress_suggested_portions", { count: suggested })}
                                                 </span>
-                                            ) : (
-                                                <span className={`text-sm ${item.textColor} font-medium`}>
-                                                    {t("progress_goal_achieved")}
-                                                </span>
-                                            )}
-                                        </div>
-                                    </div>
-                                </motion.div>
-                            );
-                        })}
+                                            </div>
+                                            <Progress value={suggested > 0 ? Math.min((current / suggested) * 100, 100) : 0} className="h-2 bg-white/70" />
+                                        </motion.div>
+                                    );
+                                })}
+                            </div>
+                        </div>
                     </div>
                 </CardContent>
             </Card>
         </motion.div>
+    );
+}
+
+// A ring that fills as the day's calories approach the goal
+function CalorieRing({ eaten, goal, color, children }) {
+    const size = 208;
+    const stroke = 16;
+    const radius = (size - stroke) / 2;
+    const circumference = 2 * Math.PI * radius;
+    const fraction = goal > 0 ? Math.min(eaten / goal, 1) : 0;
+
+    return (
+        <div className="relative mx-auto" style={{ width: size, height: size }}>
+            <svg width={size} height={size} className="-rotate-90" aria-hidden="true">
+                <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="#eef2ff" strokeWidth={stroke} />
+                <motion.circle
+                    cx={size / 2}
+                    cy={size / 2}
+                    r={radius}
+                    fill="none"
+                    stroke={color}
+                    strokeWidth={stroke}
+                    strokeLinecap="round"
+                    strokeDasharray={circumference}
+                    initial={{ strokeDashoffset: circumference }}
+                    animate={{ strokeDashoffset: circumference * (1 - fraction) }}
+                    transition={{ duration: 0.8, ease: "easeOut" }}
+                />
+            </svg>
+            <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+                {children}
+            </div>
+        </div>
     );
 }

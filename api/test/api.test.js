@@ -180,13 +180,35 @@ test('clearing a day reports partial failures', async () => {
   assert.equal((await call('GET', '/api/foods?date=2026-10-04')).body.data.length, 0);
 });
 
-test('goals are created then updated, and validated', async () => {
+test('the goal is calories; macros are an optional suggestion', async () => {
   assert.equal((await call('GET', '/api/goals')).body.data, null);
-  assertError(await call('PUT', '/api/goals', { body: { protein_goal: '', carbs_goal: 4, fat_goal: 3 } }), 400, 'validation');
-  await call('PUT', '/api/goals', { body: { protein_goal: 5, carbs_goal: 4, fat_goal: 3 } });
-  await call('PUT', '/api/goals', { body: { protein_goal: 6, carbs_goal: 4, fat_goal: 3 } });
+  // Goals saved before calorie goals existed come back with the calories their portions add up to
+  db.daily_goals.push({ id: 'old', protein_goal: 6, carbs_goal: 6.5, fat_goal: 2 });
+  assert.equal((await call('GET', '/api/goals')).body.data.calorie_goal, 1680);
+  db.daily_goals.length = 0;
+
+  const missing = await call('PUT', '/api/goals', { body: { protein_goal: 5, carbs_goal: 4, fat_goal: 3 } });
+  assertError(missing, 400, 'validation');
+  assert.equal(missing.body.error.details.field, 'calorie_goal');
+  assertError(await call('PUT', '/api/goals', { body: { calorie_goal: 2000, fat_goal: 'x' } }), 400, 'validation');
+
+  await call('PUT', '/api/goals', { body: { calorie_goal: 2200 } });
+  const saved = await call('PUT', '/api/goals', { body: { calorie_goal: '1900', protein_goal: 5, carbs_goal: '', fat_goal: 3 } });
   assert.equal(db.daily_goals.length, 1);
-  assert.deepEqual((await call('GET', '/api/goals')).body.data, { protein_goal: 6, carbs_goal: 4, fat_goal: 3 });
+  assert.deepEqual(saved.body.data, { calorie_goal: 1900, protein_goal: 5, carbs_goal: 0, fat_goal: 3 });
+  assert.deepEqual((await call('GET', '/api/goals')).body.data, { calorie_goal: 1900, protein_goal: 5, carbs_goal: 0, fat_goal: 3 });
+});
+
+test('logged foods count calories, alcohol included', async () => {
+  const beer = await call('POST', '/api/foods', { body: {
+    name: 'Lager (330g)', protein_grams: 1.5, carbs_grams: 11.7, fat_grams: 0, alcohol_grams: 12.9, date: '2026-10-06',
+  } });
+  assert.equal(beer.status, 201);
+  assert.equal(beer.body.data.alcohol_grams, 12.9);
+  assert.equal(beer.body.data.kcal, 143); // 1.5*4 + 11.7*4 + 12.9*7
+  assertError(await call('POST', '/api/foods', { body: {
+    name: 'x', protein_grams: 0, carbs_grams: 0, fat_grams: 0, alcohol_grams: -1, date: '2026-10-06',
+  } }), 400, 'validation');
 });
 
 test('import saves valid rows and lists the failed ones', async () => {
@@ -229,6 +251,28 @@ test('library foods have a name per language and a category', async () => {
   assert.deepEqual(renamed.body.data.names, { en: '', es: 'Manzana roja', he: '' });
   assert.equal(renamed.body.data.builtin, false);
   assertError(await call('PATCH', `/api/food-items/${id}`, { body: { seed_key: 'apple' } }), 400, 'validation');
+});
+
+test('library drinks carry alcohol, calories and a typical serving', async () => {
+  const vodka = await call('POST', '/api/food-items', { body: {
+    names: { en: 'Vodka' }, category: 'alcohol', serving: { unit: 'shot', grams: 40 },
+    protein_per_100g: 0, carbs_per_100g: 0, fat_per_100g: 0, alcohol_per_100g: 33.4,
+  } });
+  assert.equal(vodka.status, 201);
+  assert.equal(vodka.body.data.category, 'alcohol');
+  assert.equal(vodka.body.data.kcal_per_100g, 234);
+  assert.deepEqual(vodka.body.data.serving, { unit: 'shot', grams: 40 });
+
+  const id = vodka.body.data.id;
+  assert.equal((await call('PATCH', `/api/food-items/${id}`, { body: { serving: null } })).body.data.serving, null);
+  assertError(await call('PATCH', `/api/food-items/${id}`, { body: { serving: { unit: 'bucket', grams: 40 } } }), 400, 'validation');
+  assertError(await call('PATCH', `/api/food-items/${id}`, { body: { serving: { unit: 'shot', grams: 0 } } }), 400, 'validation');
+
+  // Foods without alcohol or a serving (every food saved before) still work
+  const rice = (await call('GET', '/api/food-items')).body.data.find((f) => f.name === 'Rice');
+  assert.equal(rice.alcohol_per_100g, 0);
+  assert.equal(rice.kcal_per_100g, 126); // 2.7*4 + 28*4 + 0.3*9
+  assert.equal(rice.serving, null);
 });
 
 test('built-in foods from the seed are flagged', async () => {
