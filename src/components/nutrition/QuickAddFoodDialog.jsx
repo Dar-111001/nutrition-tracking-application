@@ -99,7 +99,7 @@ export default function QuickAddFoodDialog({ isOpen, onOpenChange, onSubmit, isL
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => { if (!open) resetForm(); onOpenChange(open); }}>
-            <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
+            <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle className="text-xl">{t("quick_title")}</DialogTitle>
                     <DialogDescription>{t("quick_desc")}</DialogDescription>
@@ -127,8 +127,8 @@ export default function QuickAddFoodDialog({ isOpen, onOpenChange, onSubmit, isL
                                         autoComplete="off"
                                     />
                                 </div>
-                                <CategoryChips value={category} onChange={setCategory} counts={countByCategory(searched)} total={searched.length} compact />
-                                <ul role="listbox" aria-labelledby="foodItem-label" className="max-h-56 overflow-y-auto rounded-xl border border-gray-100 divide-y divide-gray-50">
+                                <CategoryChips value={category} onChange={setCategory} counts={countByCategory(searched)} total={searched.length} />
+                                <ul role="listbox" aria-labelledby="foodItem-label" className="max-h-72 overflow-y-auto rounded-xl border border-gray-100 divide-y divide-gray-50">
                                     {visible.length === 0 ? (
                                         <li className="px-3 py-6 text-center text-sm text-gray-500">{t("library_no_matches")}</li>
                                     ) : visible.map((item) => {

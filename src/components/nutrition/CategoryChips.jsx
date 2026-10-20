@@ -22,7 +22,7 @@ export const CATEGORY_ICONS = {
  * A row of filter chips: "All" plus every category that has foods.
  * value is a category key or "all"; counts is { category: number }.
  */
-export default function CategoryChips({ value, onChange, counts, total, compact = false }) {
+export default function CategoryChips({ value, onChange, counts, total }) {
     const { t } = useTranslation();
     const chips = [
         { key: "all", Icon: LayoutGrid, count: total },
@@ -33,7 +33,7 @@ export default function CategoryChips({ value, onChange, counts, total, compact 
         <div
             role="tablist"
             aria-label={t("library_categories")}
-            className={cn("flex gap-2", compact ? "overflow-x-auto pb-1 -mx-1 px-1" : "flex-wrap")}
+            className="flex flex-wrap gap-2"
         >
             {chips.map(({ key, Icon, count }) => {
                 const active = value === key;
