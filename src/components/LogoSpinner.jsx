@@ -19,7 +19,7 @@ const SIZES = {
 export default function LogoSpinner({ size = "md", inline = false, label, className }) {
     const { t } = useTranslation();
     const text = label ?? t("common_loading");
-    const mark = <Logo spinning className={cn(SIZES[size], "shrink-0 motion-reduce:[&_*]:animate-none")} />;
+    const mark = <Logo spinning className={cn(SIZES[size], "shrink-0")} />;
 
     if (inline) {
         return (

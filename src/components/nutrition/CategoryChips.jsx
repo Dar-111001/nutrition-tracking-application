@@ -31,8 +31,10 @@ export default function CategoryChips({ value, onChange, counts, total }) {
     ];
 
     return (
+        // A filter, not tabs: there are no tab panels, so each chip is a toggle
+        // button (aria-pressed) inside a labelled group, reachable with Tab.
         <div
-            role="tablist"
+            role="group"
             aria-label={t("library_categories")}
             className="flex flex-wrap gap-2"
         >
@@ -42,8 +44,7 @@ export default function CategoryChips({ value, onChange, counts, total }) {
                     <button
                         key={key}
                         type="button"
-                        role="tab"
-                        aria-selected={active}
+                        aria-pressed={active}
                         onClick={() => onChange(key)}
                         className={cn(
                             "inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-all",
@@ -52,7 +53,7 @@ export default function CategoryChips({ value, onChange, counts, total }) {
                                 : "border-gray-200 bg-white/80 text-gray-700 hover:border-gray-300 hover:bg-white",
                         )}
                     >
-                        <Icon className="h-4 w-4" />
+                        <Icon className="h-4 w-4" aria-hidden="true" />
                         <span>{key === "all" ? t("library_category_all") : t(`category_${key}`)}</span>
                         <span className={cn("text-xs", active ? "text-white/70" : "text-gray-400")}>{count}</span>
                     </button>

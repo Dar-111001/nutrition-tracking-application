@@ -62,17 +62,26 @@ export default function QuickAddFoodDialog({ isOpen, onOpenChange, onSubmit, isL
         }
     }, [selectedItem, gramsConsumed]);
 
+    // The button stays enabled: pressing it too early explains what is missing,
+    // right under it, instead of a greyed-out button that says nothing.
     const handleSubmit = async () => {
-        if (selectedItem && gramsConsumed > 0 && calculatedMacros) {
-            setSubmitError(null);
-            const result = await onSubmit({
-                name: `${foodName(selectedItem, lang)} (${gramsConsumed}g)`,
-                ...calculatedMacros,
-            });
-            // On failure the dialog stays open with the user's choice, and the error shows under the button.
-            if (result.ok) resetForm();
-            else setSubmitError(result.error);
+        if (!selectedItem) {
+            setSubmitError(t("quick_pick_food"));
+            return;
         }
+        if (!(gramsConsumed > 0) || !calculatedMacros) {
+            setSubmitError(t("quick_enter_grams"));
+            document.getElementById("grams")?.focus();
+            return;
+        }
+        setSubmitError(null);
+        const result = await onSubmit({
+            name: `${foodName(selectedItem, lang)} (${gramsConsumed}g)`,
+            ...calculatedMacros,
+        });
+        // On failure the dialog stays open with the user's choice, and the error shows under the button.
+        if (result.ok) resetForm();
+        else setSubmitError(result.error);
     };
 
     const resetForm = () => {
@@ -94,7 +103,7 @@ export default function QuickAddFoodDialog({ isOpen, onOpenChange, onSubmit, isL
                 </DialogHeader>
                 <div className="grid gap-6 py-4">
                     <div className="space-y-2">
-                        <Label htmlFor="foodItem" id="foodItem-label">{t("quick_select_label")}</Label>
+                        <Label htmlFor="foodItem">{t("quick_select_label")}</Label>
                         {libraryLoad.status === "loading" ? (
                             <LogoSpinner size="sm" className="py-2 flex-row" />
                         ) : libraryLoad.status === "error" ? (
@@ -116,36 +125,48 @@ export default function QuickAddFoodDialog({ isOpen, onOpenChange, onSubmit, isL
                                     />
                                 </div>
                                 <CategoryChips value={category} onChange={setCategory} counts={countByCategory(searched)} total={searched.length} />
-                                <ul role="listbox" aria-labelledby="foodItem-label" className="max-h-72 overflow-y-auto rounded-xl border border-gray-100 divide-y divide-gray-50">
+                                {/* Native radio buttons: one choice, arrow keys move between foods,
+                                    and screen readers announce "3 of 40" without any ARIA. */}
+                                <fieldset className="max-h-72 overflow-y-auto rounded-xl border border-gray-100 divide-y divide-gray-50">
+                                    <legend className="sr-only">{t("quick_select_label")}</legend>
                                     {visible.length === 0 ? (
-                                        <li className="px-3 py-6 text-center text-sm text-gray-500">{t("library_no_matches")}</li>
+                                        <p className="px-3 py-6 text-center text-sm text-gray-500">{t("library_no_matches")}</p>
                                     ) : visible.map((item) => {
                                         const selected = item.id === selectedFoodItemId;
                                         return (
-                                            <li key={item.id} role="option" aria-selected={selected}>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setSelectedFoodItemId(item.id)}
-                                                    className={cn(
-                                                        "flex w-full items-center gap-2 px-3 py-2 text-start text-sm transition-colors",
-                                                        selected ? "bg-gray-900 text-white" : "hover:bg-gray-50",
-                                                    )}
-                                                >
-                                                    <span className="flex-1 truncate">{foodName(item, lang)}</span>
-                                                    {item.serving && (
-                                                        <span className={cn("text-xs", selected ? "text-white/70" : "text-gray-400")}>
-                                                            {t("serving_short", { unit: t(`serving_${item.serving.unit}`), grams: item.serving.grams })}
-                                                        </span>
-                                                    )}
+                                            <label
+                                                key={item.id}
+                                                className={cn(
+                                                    "flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-start text-sm transition-colors",
+                                                    "focus-ring-within",
+                                                    selected ? "bg-gray-900 text-white" : "hover:bg-gray-50",
+                                                )}
+                                            >
+                                                <input
+                                                    type="radio"
+                                                    name="quick-add-food"
+                                                    value={item.id}
+                                                    checked={selected}
+                                                    onChange={() => {
+                                                        setSelectedFoodItemId(item.id);
+                                                        setSubmitError(null);
+                                                    }}
+                                                    className="sr-only"
+                                                />
+                                                <span className="flex-1 truncate">{foodName(item, lang)}</span>
+                                                {item.serving && (
                                                     <span className={cn("text-xs", selected ? "text-white/70" : "text-gray-400")}>
-                                                        {kcalPer100g(item)} {t("library_kcal")}
+                                                        {t("serving_short", { unit: t(`serving_${item.serving.unit}`), grams: item.serving.grams })}
                                                     </span>
-                                                    {selected && <Check className="h-4 w-4" aria-hidden="true" />}
-                                                </button>
-                                            </li>
+                                                )}
+                                                <span className={cn("text-xs", selected ? "text-white/70" : "text-gray-400")}>
+                                                    {kcalPer100g(item)} {t("library_kcal")}
+                                                </span>
+                                                {selected && <Check className="h-4 w-4" aria-hidden="true" />}
+                                            </label>
                                         );
                                     })}
-                                </ul>
+                                </fieldset>
                             </div>
                         )}
                     </div>
@@ -157,7 +178,12 @@ export default function QuickAddFoodDialog({ isOpen, onOpenChange, onSubmit, isL
                             type="number"
                             placeholder="0"
                             value={gramsConsumed}
-                            onChange={(e) => setGramsConsumed(e.target.value)}
+                            inputMode="decimal"
+                            min="0"
+                            onChange={(e) => {
+                                setGramsConsumed(e.target.value);
+                                setSubmitError(null);
+                            }}
                         />
                         {/* Drinks know their typical serving: one tap fills in a shot, a glass or a pint */}
                         {selectedItem?.serving && (
@@ -186,7 +212,7 @@ export default function QuickAddFoodDialog({ isOpen, onOpenChange, onSubmit, isL
                             className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-2xl p-4 mt-2"
                         >
                             <div className="flex items-center gap-2 mb-3">
-                                <Calculator className="w-5 h-5 text-gray-600" />
+                                <Calculator className="w-5 h-5 text-gray-600" aria-hidden="true" />
                                 <span className="font-medium text-gray-700">{t("quick_summary")}</span>
                             </div>
                             <div className="grid grid-cols-4 gap-2">
@@ -211,11 +237,11 @@ export default function QuickAddFoodDialog({ isOpen, onOpenChange, onSubmit, isL
                     )}
                 </div>
                 <DialogFooter className="flex-col sm:flex-col">
-                    <Button onClick={handleSubmit} disabled={isLoading || !calculatedMacros} className="w-full">
+                    <Button onClick={handleSubmit} disabled={isLoading} aria-describedby={submitError ? "quick-add-error" : undefined} className="w-full">
                         {isLoading && <LogoSpinner size="sm" inline className="me-2" />}
                         {isLoading ? t("quick_submitting") : t("quick_submit")}
                     </Button>
-                    <InlineError error={submitError} />
+                    <InlineError id="quick-add-error" error={submitError} />
                 </DialogFooter>
             </DialogContent>
         </Dialog>

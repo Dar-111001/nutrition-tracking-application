@@ -23,6 +23,14 @@ const SEARCH_ERROR_KEYS = {
     server: "form_search_unavailable",
 };
 
+// Checked in this order on submit; `id` is the input's id, to move focus to it.
+const REQUIRED_FIELDS = [
+    { field: "name", id: "name" },
+    { field: "protein_per_100g", id: "protein" },
+    { field: "carbs_per_100g", id: "carbs" },
+    { field: "fat_per_100g", id: "fat" },
+];
+
 function searchErrorText(error, t) {
     const key = error && SEARCH_ERROR_KEYS[error.code];
     return key ? t(key) : error;
@@ -72,12 +80,17 @@ export default function FoodForm({ onSubmit, isLoading }) {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!formData.name.trim() || formData.protein_per_100g === "" || formData.carbs_per_100g === "" || formData.fat_per_100g === "") {
+        // On a failed check, say what is missing under the button and move focus
+        // to the first field to fix, so keyboard and screen reader users land on it.
+        const missing = REQUIRED_FIELDS.find(({ field }) => String(formData[field]).trim() === "");
+        if (missing) {
             setSubmitError(t("form_fields_required"));
+            document.getElementById(missing.id)?.focus();
             return;
         }
         if (!(amountGrams > 0)) {
             setSubmitError(t("form_amount_required"));
+            document.getElementById("amount")?.focus();
             return;
         }
         setSubmitError(null);
@@ -102,7 +115,7 @@ export default function FoodForm({ onSubmit, isLoading }) {
             <Card className="backdrop-blur-sm bg-white/90 border-0 shadow-xl rounded-3xl overflow-hidden">
                 <CardHeader className="bg-gradient-to-r from-emerald-500 to-teal-600 text-white pb-8">
                     <CardTitle className="text-2xl font-light flex items-center gap-3">
-                        <Plus className="w-6 h-6" />
+                        <Plus className="w-6 h-6" aria-hidden="true" />
                         {t("form_title")}
                     </CardTitle>
                 </CardHeader>
@@ -128,18 +141,20 @@ export default function FoodForm({ onSubmit, isLoading }) {
                                 <Button
                                     type="button"
                                     onClick={handleAutoSearch}
-                                    disabled={isSearching || !formData.name.trim()}
+                                    disabled={isSearching}
+                                    aria-describedby={searchError ? "food-search-error" : undefined}
                                     className="h-12 px-6 bg-blue-500 hover:bg-blue-600 text-white rounded-xl"
                                 >
                                     {isSearching
                                         ? <LogoSpinner size="sm" inline />
-                                        : <Search className="w-5 h-5" />}
+                                        : <Search className="w-5 h-5" aria-hidden="true" />}
                                     <span className="ms-2">
                                         {isSearching ? t("form_searching") : t("form_auto_search")}
                                     </span>
                                 </Button>
                             </div>
                             <InlineError
+                                id="food-search-error"
                                 error={searchErrorText(searchError, t)}
                                 onRetry={typeof searchError === "string" ? undefined : handleAutoSearch}
                             />
@@ -192,6 +207,8 @@ export default function FoodForm({ onSubmit, isLoading }) {
                                     <Input
                                         id={id}
                                         type="number"
+                                        inputMode="decimal"
+                                        min="0"
                                         step="0.1"
                                         value={formData[field]}
                                         onChange={(e) => setFormData({ ...formData, [field]: e.target.value })}
@@ -207,6 +224,7 @@ export default function FoodForm({ onSubmit, isLoading }) {
                             <Input
                                 id="amount"
                                 type="number"
+                                inputMode="decimal"
                                 step="1"
                                 min="0"
                                 value={formData.amount_grams}
@@ -224,7 +242,7 @@ export default function FoodForm({ onSubmit, isLoading }) {
                                 className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-2xl p-6"
                             >
                                 <div className="flex items-center gap-2 mb-4">
-                                    <Calculator className="w-5 h-5 text-gray-600" />
+                                    <Calculator className="w-5 h-5 text-gray-600" aria-hidden="true" />
                                     <span className="font-medium text-gray-700">{t("form_portions_calc")}</span>
                                 </div>
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -251,12 +269,13 @@ export default function FoodForm({ onSubmit, isLoading }) {
                         <Button
                             type="submit"
                             disabled={isLoading}
-                            className="w-full h-14 text-lg font-medium bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 rounded-xl transition-all duration-300 transform hover:scale-[1.02]"
+                            aria-describedby={submitError ? "food-form-error" : undefined}
+                            className="w-full min-h-14 text-lg font-medium bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 rounded-xl transition-all duration-300 transform hover:scale-[1.02]"
                         >
                             {isLoading && <LogoSpinner size="sm" inline className="me-2" />}
                             {isLoading ? t("form_submitting") : t("form_submit")}
                         </Button>
-                        <InlineError error={submitError} />
+                        <InlineError id="food-form-error" error={submitError} />
                     </form>
                 </CardContent>
             </Card>

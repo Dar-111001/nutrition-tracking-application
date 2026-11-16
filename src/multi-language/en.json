@@ -219,5 +219,10 @@
   "category_alcohol_hint": "Values are per 100 g, like every food. A shot is about 40 g, a bottle of beer 330 g and a pint 568 g.",
   "monthly_status_on": "on target",
   "monthly_status_under": "under the goal",
-  "monthly_status_over": "over the goal"
+  "monthly_status_over": "over the goal",
+  "nav_main": "Main",
+  "nav_skip_to_content": "Skip to content",
+  "common_close": "Close",
+  "quick_pick_food": "Pick a food from the list first.",
+  "quick_enter_grams": "Enter how many grams you ate."
 }

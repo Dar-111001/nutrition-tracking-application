@@ -1,4 +1,4 @@
-import { Component, Suspense, lazy, useState } from "react";
+import { Component, Suspense, lazy, useEffect, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import { AlertCircle, Eye, EyeOff, ArrowRight } from "lucide-react";
@@ -59,12 +59,20 @@ export default function LoginScreen({ onLogin }) {
     const [loading, setLoading] = useState(false);
     const [attempt, setAttempt] = useState(0); // bumps on each failure to replay the shake
 
+    useEffect(() => {
+        document.title = `${t("login_title")} | ${t("nav_title")}`;
+    }, [t]);
+
     const validate = () => {
         const errors = {};
         if (!EMAIL_PATTERN.test(email.trim())) errors.email = t("login_error_email_invalid");
         if (!password) errors.password = t("login_error_password_required");
         setFieldErrors(errors);
-        return Object.keys(errors).length === 0;
+        // The form uses noValidate, so the browser won't move focus for us: send it
+        // to the first field to fix, where a screen reader reads out its error.
+        const firstInvalid = errors.email ? "login-email" : errors.password ? "login-password" : null;
+        if (firstInvalid) document.getElementById(firstInvalid)?.focus();
+        return !firstInvalid;
     };
 
     const handleSubmit = async (e) => {
@@ -104,7 +112,8 @@ export default function LoginScreen({ onLogin }) {
               };
 
     return (
-        <div className="relative min-h-screen overflow-hidden bg-[#0b1020] text-white">
+        // color-scheme: dark makes autofill, caret and scrollbars match this dark screen
+        <div className="relative min-h-screen overflow-hidden bg-[#0b1020] text-white [color-scheme:dark]">
             {/* Ambient glows (also the fallback when WebGL isn't available) */}
             <div aria-hidden className="pointer-events-none absolute -top-40 -start-40 h-[32rem] w-[32rem] rounded-full bg-indigo-600/30 blur-3xl" />
             <div aria-hidden className="pointer-events-none absolute -bottom-48 end-0 h-[28rem] w-[28rem] rounded-full bg-fuchsia-600/20 blur-3xl" />
@@ -177,6 +186,9 @@ export default function LoginScreen({ onLogin }) {
                                         type: "email",
                                         autoComplete: "username",
                                         inputMode: "email",
+                                        autoCapitalize: "none",
+                                        autoCorrect: "off",
+                                        spellCheck: false,
                                         autoFocus: true,
                                         value: email,
                                         onChange: (e) => {
@@ -192,6 +204,7 @@ export default function LoginScreen({ onLogin }) {
                                     input={{
                                         type: showPassword ? "text" : "password",
                                         autoComplete: "current-password",
+                                        enterKeyHint: "go",
                                         value: password,
                                         onChange: (e) => {
                                             setPassword(e.target.value);
@@ -206,7 +219,7 @@ export default function LoginScreen({ onLogin }) {
                                             aria-label={t(showPassword ? "login_hide_password" : "login_show_password")}
                                             title={t(showPassword ? "login_hide_password" : "login_show_password")}
                                         >
-                                            {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                            {showPassword ? <EyeOff className="h-4 w-4" aria-hidden="true" /> : <Eye className="h-4 w-4" aria-hidden="true" />}
                                         </button>
                                     }
                                 />
@@ -235,7 +248,7 @@ export default function LoginScreen({ onLogin }) {
                             <div aria-live="polite">
                                 {submitError && (
                                     <p id="login-submit-error" role="alert" className="mt-3 flex items-start gap-2 text-sm text-red-400">
-                                        <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                                        <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
                                         {submitError}
                                     </p>
                                 )}

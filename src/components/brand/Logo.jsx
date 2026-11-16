@@ -2,7 +2,8 @@ import { useId } from "react";
 
 // The app mark: a ring split into the three macros (protein, carbs, fat)
 // around a leaf. With `spinning`, only the ring turns, so the same mark
-// doubles as the loading indicator.
+// doubles as the loading indicator (.logo-spin in index.css, which also slows
+// it down for people who ask for reduced motion).
 export default function Logo({ className = "w-10 h-10", spinning = false, title }) {
     const id = useId();
 
@@ -22,8 +23,7 @@ export default function Logo({ className = "w-10 h-10", spinning = false, title 
             </defs>
 
             <g
-                className={spinning ? "animate-spin" : undefined}
-                style={{ transformOrigin: "24px 24px", animationDuration: "1.1s" }}
+                className={spinning ? "logo-spin" : undefined}
                 fill="none"
                 strokeWidth="5"
                 strokeLinecap="round"
