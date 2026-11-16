@@ -1,63 +1,26 @@
-import Layout from "./Layout.jsx";
-
+import { createBrowserRouter, Navigate, RouterProvider } from "react-router-dom";
+import Layout from "./Layout";
 import Home from "./Home";
-
 import FoodLibrary from "./FoodLibrary";
-
 import MonthlyTracker from "./MonthlyTracker";
 
-import { BrowserRouter as Router, Route, Routes, useLocation } from 'react-router-dom';
-
-const PAGES = {
-    
-    Home: Home,
-    
-    FoodLibrary: FoodLibrary,
-    
-    MonthlyTracker: MonthlyTracker,
-    
-}
-
-function _getCurrentPage(url) {
-    if (url.endsWith('/')) {
-        url = url.slice(0, -1);
-    }
-    let urlLastPart = url.split('/').pop();
-    if (urlLastPart.includes('?')) {
-        urlLastPart = urlLastPart.split('?')[0];
-    }
-
-    const pageName = Object.keys(PAGES).find(page => page.toLowerCase() === urlLastPart.toLowerCase());
-    return pageName || Object.keys(PAGES)[0];
-}
-
-// Create a wrapper component that uses useLocation inside the Router context
-function PagesContent() {
-    const location = useLocation();
-    const currentPage = _getCurrentPage(location.pathname);
-    
-    return (
-        <Layout currentPageName={currentPage}>
-            <Routes>            
-                
-                    <Route path="/" element={<Home />} />
-                
-                
-                <Route path="/Home" element={<Home />} />
-                
-                <Route path="/FoodLibrary" element={<FoodLibrary />} />
-                
-                <Route path="/MonthlyTracker" element={<MonthlyTracker />} />
-                
-            </Routes>
-        </Layout>
-    );
-}
+// One route per page, all inside the shared Layout (header + <Outlet />).
+// A data router (createBrowserRouter) is what lets <Link viewTransition>
+// animate navigations with the browser's View Transitions API.
+// `handle.title` is the translation key for the browser tab title.
+const router = createBrowserRouter([
+    {
+        element: <Layout />,
+        children: [
+            { path: "/", element: <Home />, handle: { title: "nav_daily" } },
+            { path: "/monthlytracker", element: <MonthlyTracker />, handle: { title: "nav_monthly" } },
+            { path: "/foodlibrary", element: <FoodLibrary />, handle: { title: "nav_library" } },
+            // Unknown paths (and the old /Home) go to the daily journal instead of a blank page
+            { path: "*", element: <Navigate to="/" replace /> },
+        ],
+    },
+]);
 
 export default function Pages() {
-    return (
-        <Router>
-            <PagesContent />
-        </Router>
-    );
+    return <RouterProvider router={router} />;
 }

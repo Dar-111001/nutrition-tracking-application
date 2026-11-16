@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback } from "react";
 import { Food, DailyGoals } from "@/api/entities";
 import { Button } from "@/components/ui/button";
 import { Settings, Info } from "lucide-react";
-import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import {
     Dialog,
@@ -18,6 +17,7 @@ import { DEFAULT_CALORIE_GOAL, suggestedPortions } from "@/lib/goals";
 import InlineError from "@/components/InlineError";
 import LogoSpinner from "@/components/LogoSpinner";
 import ConfirmDialog from "@/components/ConfirmDialog";
+import PageHeader from "@/components/PageHeader";
 
 import FoodForm from "../components/nutrition/FoodForm";
 import DailyProgress from "../components/nutrition/DailyProgress";
@@ -143,157 +143,144 @@ export default function Home() {
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 p-4 md:p-8">
-            <div className="max-w-6xl mx-auto">
-                <motion.div
-                    initial={{ opacity: 0, y: -20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="text-center mb-12"
-                >
-                    <h1 className="text-4xl md:text-6xl font-light text-gray-800 mb-4">
-                        {t("home_title")}
-                        <span className="block text-2xl md:text-3xl text-gray-500 font-normal mt-2">
-                            {t("home_subtitle")}
-                        </span>
-                    </h1>
-
-                    <div className="flex justify-center gap-4 mt-8">
-                        <Dialog open={showGoalsDialog} onOpenChange={openGoalsDialog}>
-                            <DialogTrigger asChild>
-                                <Button variant="outline" className="rounded-2xl border-2 hover:bg-gray-50">
-                                    <Settings className="w-4 h-4 mr-2" />
-                                    {t("home_set_goals")}
-                                </Button>
-                            </DialogTrigger>
-                            <DialogContent className="sm:max-w-md">
-                                <DialogHeader>
-                                    <DialogTitle>{t("home_goals_dialog_title")}</DialogTitle>
-                                </DialogHeader>
-                                <form
-                                    className="space-y-4"
-                                    onSubmit={(e) => { e.preventDefault(); handleSaveGoals(); }}
-                                >
-                                    <div>
-                                        <Label htmlFor="calorie_goal">{t("home_calorie_goal")}</Label>
-                                        <Input
-                                            id="calorie_goal"
-                                            type="number"
-                                            inputMode="numeric"
-                                            min="500"
-                                            max="10000"
-                                            step="50"
-                                            value={goalsForm.calorie_goal}
-                                            onChange={(e) => setGoalsForm({ ...goalsForm, calorie_goal: e.target.value })}
-                                            className="text-center text-lg font-semibold"
-                                        />
-                                    </div>
-                                    <fieldset className="rounded-xl border border-gray-200 p-4 space-y-3">
-                                        <legend className="px-1 text-sm font-medium text-gray-700">{t("home_suggested_split")}</legend>
-                                        <p className="text-xs text-gray-500">{t("home_suggested_split_hint")}</p>
-                                        <div className="grid grid-cols-3 gap-3">
-                                            {MACRO_FIELDS.map(({ field, macro, label }) => (
-                                                <div key={field}>
-                                                    <Label htmlFor={field} className="text-xs">{t(label)}</Label>
-                                                    <Input
-                                                        id={field}
-                                                        type="number"
-                                                        inputMode="decimal"
-                                                        min="0"
-                                                        step="0.1"
-                                                        value={goalsForm[field]}
-                                                        placeholder={String(suggestedPortions(Number(goalsForm.calorie_goal) || DEFAULT_CALORIE_GOAL)[macro])}
-                                                        onChange={(e) => setGoalsForm({ ...goalsForm, [field]: e.target.value })}
-                                                        className="text-center"
-                                                    />
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </fieldset>
-                                    <div>
-                                        <Button type="submit" className="w-full" disabled={isSavingGoals}>
-                                            {isSavingGoals && <LogoSpinner size="sm" inline className="me-2" />}
-                                            {t("home_save_goals")}
-                                        </Button>
-                                        <InlineError error={goalsError} />
-                                    </div>
-                                </form>
-                            </DialogContent>
-                        </Dialog>
-
-                        <Dialog>
-                            <DialogTrigger asChild>
-                                <Button variant="outline" className="rounded-2xl border-2 hover:bg-gray-50">
-                                    <Info className="w-4 h-4 mr-2" />
-                                    {t("home_portion_info")}
-                                </Button>
-                            </DialogTrigger>
-                            <DialogContent className="sm:max-w-lg">
-                                <DialogHeader>
-                                    <DialogTitle>{t("home_macro_title")}</DialogTitle>
-                                </DialogHeader>
-                                <div className="space-y-4">
-                                    <div className="bg-indigo-50 p-4 rounded-xl">
-                                        <h3 className="font-semibold text-indigo-700 mb-2">{t("home_calories_title")}</h3>
-                                        <p className="text-indigo-600">{t("home_calories_desc")}</p>
-                                    </div>
-                                    <div className="bg-emerald-50 p-4 rounded-xl">
-                                        <h3 className="font-semibold text-emerald-700 mb-2">{t("home_protein_portion_title")}</h3>
-                                        <p className="text-emerald-600">{t("home_protein_portion_desc")}</p>
-                                    </div>
-                                    <div className="bg-amber-50 p-4 rounded-xl">
-                                        <h3 className="font-semibold text-amber-700 mb-2">{t("home_carbs_portion_title")}</h3>
-                                        <p className="text-amber-600">{t("home_carbs_portion_desc")}</p>
-                                    </div>
-                                    <div className="bg-orange-50 p-4 rounded-xl">
-                                        <h3 className="font-semibold text-orange-700 mb-2">{t("home_fat_portion_title")}</h3>
-                                        <p className="text-orange-600">{t("home_fat_portion_desc")}</p>
-                                    </div>
-                                    <div className="mt-6 p-4 bg-gray-50 rounded-xl">
-                                        <h4 className="font-medium mb-3">{t("home_examples")}</h4>
-                                        <ul className="text-sm space-y-2 text-gray-600">
-                                            <li>• {t("home_example_bread")}</li>
-                                            <li>• {t("home_example_rice")}</li>
-                                            <li>• {t("home_example_almonds")}</li>
-                                            <li>• {t("home_example_avocado")}</li>
-                                        </ul>
-                                    </div>
+        <>
+            <PageHeader title={t("home_title")} subtitle={t("home_subtitle")}>
+                <div className="flex flex-wrap justify-center gap-4 mt-8">
+                    <Dialog open={showGoalsDialog} onOpenChange={openGoalsDialog}>
+                        <DialogTrigger asChild>
+                            <Button variant="outline" className="rounded-2xl border-2 hover:bg-gray-50">
+                                <Settings className="w-4 h-4 me-2" aria-hidden="true" />
+                                {t("home_set_goals")}
+                            </Button>
+                        </DialogTrigger>
+                        <DialogContent className="sm:max-w-md">
+                            <DialogHeader>
+                                <DialogTitle>{t("home_goals_dialog_title")}</DialogTitle>
+                            </DialogHeader>
+                            <form
+                                className="space-y-4"
+                                onSubmit={(e) => { e.preventDefault(); handleSaveGoals(); }}
+                            >
+                                <div>
+                                    <Label htmlFor="calorie_goal">{t("home_calorie_goal")}</Label>
+                                    <Input
+                                        id="calorie_goal"
+                                        type="number"
+                                        inputMode="numeric"
+                                        min="500"
+                                        max="10000"
+                                        step="50"
+                                        value={goalsForm.calorie_goal}
+                                        onChange={(e) => setGoalsForm({ ...goalsForm, calorie_goal: e.target.value })}
+                                        className="text-center text-lg font-semibold"
+                                    />
                                 </div>
-                            </DialogContent>
-                        </Dialog>
+                                <fieldset className="rounded-xl border border-gray-200 p-4 space-y-3">
+                                    <legend className="px-1 text-sm font-medium text-gray-700">{t("home_suggested_split")}</legend>
+                                    <p className="text-xs text-gray-500">{t("home_suggested_split_hint")}</p>
+                                    <div className="grid grid-cols-3 gap-3">
+                                        {MACRO_FIELDS.map(({ field, macro, label }) => (
+                                            <div key={field}>
+                                                <Label htmlFor={field} className="text-xs">{t(label)}</Label>
+                                                <Input
+                                                    id={field}
+                                                    type="number"
+                                                    inputMode="decimal"
+                                                    min="0"
+                                                    step="0.1"
+                                                    value={goalsForm[field]}
+                                                    placeholder={String(suggestedPortions(Number(goalsForm.calorie_goal) || DEFAULT_CALORIE_GOAL)[macro])}
+                                                    onChange={(e) => setGoalsForm({ ...goalsForm, [field]: e.target.value })}
+                                                    className="text-center"
+                                                />
+                                            </div>
+                                        ))}
+                                    </div>
+                                </fieldset>
+                                <div>
+                                    <Button type="submit" className="w-full" disabled={isSavingGoals}>
+                                        {isSavingGoals && <LogoSpinner size="sm" inline className="me-2" />}
+                                        {t("home_save_goals")}
+                                    </Button>
+                                    <InlineError error={goalsError} />
+                                </div>
+                            </form>
+                        </DialogContent>
+                    </Dialog>
+
+                    <Dialog>
+                        <DialogTrigger asChild>
+                            <Button variant="outline" className="rounded-2xl border-2 hover:bg-gray-50">
+                                <Info className="w-4 h-4 me-2" aria-hidden="true" />
+                                {t("home_portion_info")}
+                            </Button>
+                        </DialogTrigger>
+                        <DialogContent className="sm:max-w-lg">
+                            <DialogHeader>
+                                <DialogTitle>{t("home_macro_title")}</DialogTitle>
+                            </DialogHeader>
+                            <div className="space-y-4">
+                                <div className="bg-indigo-50 p-4 rounded-xl">
+                                    <h3 className="font-semibold text-indigo-700 mb-2">{t("home_calories_title")}</h3>
+                                    <p className="text-indigo-600">{t("home_calories_desc")}</p>
+                                </div>
+                                <div className="bg-emerald-50 p-4 rounded-xl">
+                                    <h3 className="font-semibold text-emerald-700 mb-2">{t("home_protein_portion_title")}</h3>
+                                    <p className="text-emerald-600">{t("home_protein_portion_desc")}</p>
+                                </div>
+                                <div className="bg-amber-50 p-4 rounded-xl">
+                                    <h3 className="font-semibold text-amber-700 mb-2">{t("home_carbs_portion_title")}</h3>
+                                    <p className="text-amber-600">{t("home_carbs_portion_desc")}</p>
+                                </div>
+                                <div className="bg-orange-50 p-4 rounded-xl">
+                                    <h3 className="font-semibold text-orange-700 mb-2">{t("home_fat_portion_title")}</h3>
+                                    <p className="text-orange-600">{t("home_fat_portion_desc")}</p>
+                                </div>
+                                <div className="mt-6 p-4 bg-gray-50 rounded-xl">
+                                    <h4 className="font-medium mb-3">{t("home_examples")}</h4>
+                                    <ul className="text-sm space-y-2 text-gray-600">
+                                        <li>• {t("home_example_bread")}</li>
+                                        <li>• {t("home_example_rice")}</li>
+                                        <li>• {t("home_example_almonds")}</li>
+                                        <li>• {t("home_example_avocado")}</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </DialogContent>
+                    </Dialog>
+                </div>
+            </PageHeader>
+
+            {load.status === "loading" ? (
+                <LogoSpinner size="lg" className="mb-16" />
+            ) : (
+                <>
+                    <InlineError error={load.error} onRetry={loadData} className="justify-center mb-6 text-base" />
+
+                    <DailyProgress todayFoods={todayFoods} goals={goals} />
+
+                    <div className="mb-16">
+                        <FoodList
+                            foods={todayFoods}
+                            onDeleteFood={handleDeleteFood}
+                            onClearAll={() => setShowClearDialog(true)}
+                            onAddFood={handleAddFood}
+                            isLoading={isAdding}
+                        />
                     </div>
-                </motion.div>
+                </>
+            )}
 
-                {load.status === "loading" ? (
-                    <LogoSpinner size="lg" className="mb-16" />
-                ) : (
-                    <>
-                        <InlineError error={load.error} onRetry={loadData} className="justify-center mb-6 text-base" />
+            <FoodForm onSubmit={handleAddFood} isLoading={isAdding} />
 
-                        <DailyProgress todayFoods={todayFoods} goals={goals} />
-
-                        <div className="mb-16">
-                            <FoodList
-                                foods={todayFoods}
-                                onDeleteFood={handleDeleteFood}
-                                onClearAll={() => setShowClearDialog(true)}
-                                onAddFood={handleAddFood}
-                                isLoading={isAdding}
-                            />
-                        </div>
-                    </>
-                )}
-
-                <FoodForm onSubmit={handleAddFood} isLoading={isAdding} />
-
-                <ConfirmDialog
-                    open={showClearDialog}
-                    onOpenChange={setShowClearDialog}
-                    title={t("home_clear_title")}
-                    description={t("home_confirm_clear")}
-                    confirmLabel={t("home_clear_btn")}
-                    onConfirm={handleClearAll}
-                />
-            </div>
-        </div>
+            <ConfirmDialog
+                open={showClearDialog}
+                onOpenChange={setShowClearDialog}
+                title={t("home_clear_title")}
+                description={t("home_confirm_clear")}
+                confirmLabel={t("home_clear_btn")}
+                onConfirm={handleClearAll}
+            />
+        </>
     );
 }

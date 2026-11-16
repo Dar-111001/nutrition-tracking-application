@@ -219,5 +219,10 @@
   "category_alcohol_hint": "Los valores son por 100 g, como en todos los alimentos. Un chupito pesa unos 40 g, una botella de cerveza 330 g y una pinta 568 g.",
   "monthly_status_on": "en la meta",
   "monthly_status_under": "por debajo de la meta",
-  "monthly_status_over": "por encima de la meta"
+  "monthly_status_over": "por encima de la meta",
+  "nav_main": "Principal",
+  "nav_skip_to_content": "Saltar al contenido",
+  "common_close": "Cerrar",
+  "quick_pick_food": "Primero elegí un alimento de la lista.",
+  "quick_enter_grams": "Ingresá cuántos gramos comiste."
 }

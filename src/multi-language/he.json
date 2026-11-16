@@ -219,5 +219,10 @@
   "category_alcohol_hint": "הערכים הם ל-100 גרם, כמו בכל המזונות. שוט הוא כ-40 גרם, בקבוק בירה 330 גרם ופיינט 568 גרם.",
   "monthly_status_on": "ביעד",
   "monthly_status_under": "מתחת ליעד",
-  "monthly_status_over": "מעל היעד"
+  "monthly_status_over": "מעל היעד",
+  "nav_main": "ראשי",
+  "nav_skip_to_content": "דלג לתוכן",
+  "common_close": "סגירה",
+  "quick_pick_food": "קודם בחרו מזון מהרשימה.",
+  "quick_enter_grams": "הזינו כמה גרם אכלתם."
 }
